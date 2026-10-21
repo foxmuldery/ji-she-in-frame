@@ -1,0 +1,71 @@
+{
+  "project": "《祭》 third-person pixel demo",
+  "assetSet": "references/v2",
+  "date": "2026-10-19",
+  "timeZone": "Asia/Shanghai",
+  "generator": {
+    "app": "MiniMax Design 4.0.2 (desktop, logged in)",
+    "endpoint": "http://127.0.0.1:8001/api/generate/image",
+    "backend": "nano_banana",
+    "model": "nano_banana_2_flash",
+    "modelDisplayName": "General Image 2",
+    "params": {
+      "aspect_ratio": "16:9",
+      "resolution": "2K"
+    }
+  },
+  "delivery": {
+    "width": 480,
+    "height": 270,
+    "format": "PNG",
+    "colorType": "indexed, 16 colours",
+    "interpolation": "none during palette reduction; source pixel dither preserved",
+    "promptsFile": "PROMPTS.md"
+  },
+  "files": [
+    {
+      "file": "ji_iso_eerie_v2.png",
+      "path": "ji_third_person_demo/assets/references/v2/ji_iso_eerie_v2.png",
+      "width": 480,
+      "height": 270,
+      "colors": 16,
+      "bytes": 18833,
+      "sha256": "92d246d6ab7af9aa3c58a4c929fb9658cbeda37f1dd3b8bfc3d489eb075320ee",
+      "use": "16-bit isometric night-shrine scene reference for the 480×270 pixel layer: composition, palette, lighting, prop placement, and the eerie background details (double-headed shadow, wall-facing chair, wet shoes and footprints, red thread, hand-shaped incense smoke, scratched ancestor portraits, stopped clock, talisman, bowl).",
+      "source": {
+        "appOutputFile": "ji_iso_eerie_v2.png.png",
+        "rawWidth": 2752,
+        "rawHeight": 1536,
+        "nodeId": "0b25b5a3-6a17-4e2c-a230-2b65c96e8173",
+        "prompt": "PROMPTS.md §1 (verbatim)",
+        "process": "point resample to 480x270, +dither -colors 16, stripped, indexed PNG"
+      }
+    },
+    {
+      "file": "ji_oldwoman_face_v2.png",
+      "path": "ji_third_person_demo/assets/references/v2/ji_oldwoman_face_v2.png",
+      "width": 480,
+      "height": 270,
+      "colors": 16,
+      "bytes": 15102,
+      "sha256": "5bbd7185c20b3948470c2855d12b41d2a18b47d263ea7e088b6d675efe28ec9e",
+      "use": "Close-up expression/face reference for the old woman: grey bun, deep wrinkles, faded blue high-collar jacket, one milk-white blind eye and one dark eye, faint wrong smile, and the warm-tungsten / cold-corpse-blue two-temperature lighting for the 480×270 portrait or sprite pass.",
+      "source": {
+        "appOutputFile": "ji_oldwoman_face_v2b.png.png",
+        "rawWidth": 2752,
+        "rawHeight": 1536,
+        "nodeId": "8ddd5c6f-d94e-42f5-9223-36490259d691",
+        "prompt": "PROMPTS.md §2 (verbatim)",
+        "process": "Lanczos resample to 480x270, +dither -colors 16, stripped, indexed PNG",
+        "attempts": 2,
+        "note": "First portrait pass rejected for reading too warm/healthy; delivered pass is the second generation."
+      }
+    }
+  ],
+  "notes": [
+    "No text, UI, HUD or watermark is intended in either frame.",
+    "The AI pixel art is a reference, not a strict 1× grid; a pixel-line pass should still clean edges and re-index to the game palette.",
+    "The clock in the shrine is stopped but its hands are not legible as 3:47 at 480×270; treat that cue as atmospheric rather than exact.",
+    "No tokens, cookies, caller keys or private account data were read, printed or stored."
+  ]
+}

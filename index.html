@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="description" content="《祭：她在画面里》— 一款 found-footage 心理恐怖 vertical slice；目标 10–15 分钟，当前内容待扩充。真等距像素房间 × 第一人称旧带 DV。离线可玩。" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#070806" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="祭：她在画面里 / She Is in the Frame" />
+<meta property="og:description" content="你以为你在扮演她。直到你举起摄影机。" />
+<meta property="og:image" content="assets/images/ji_keyart_v1.jpg" />
+<title>祭：她在画面里 — 第三人称 / 主观摄像机</title>
+<link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="pixel" width="480" height="270"></canvas>
+    <!-- First-person DV footage layer. The <video> decodes a local, muted,
+         looping file; its frames are painted into the 4:3 footage canvas,
+         which sits under the pixel DV OSD canvas. On file:// the video taints
+         the canvas for WebGL, so the live-footage layer uses the CSS CRT
+         fallback (#dvCrt); the RetroZone WebGL CRT stays on the pixel camera
+         and review modes. If the file is missing or cannot play, the camera
+         canvas falls back to the procedural pixel scene. -->
+    <video id="dvVideo" muted loop playsinline preload="auto" poster="assets/images/ji_clip_v1_poster.jpg"
+           aria-hidden="true" tabindex="-1"></video>
+    <canvas id="dvVideoCanvas" width="960" height="720"></canvas>
+    <canvas id="camera" width="1280" height="960"></canvas>
+    <div id="dvCrt"></div>
+
+    <div id="crt"></div>
+    <div id="vignette"></div>
+    <div id="fade"></div>
+
+    <div id="hud">
+      <div id="role">
+        <span id="roleName">谢雨洁</span>
+        <span id="mode">第三人称</span>
+      </div>
+      <div id="hudRight">
+        <button id="caseBtn" class="hudBtn hidden">记录 · Tab</button>
+        <button id="pauseBtn" class="hudBtn">暂停 · Esc</button>
+        <button id="reviewBtn" class="hudBtn hidden">回看 · R</button>
+        <button id="muteBtn" class="hudBtn">声音 开</button>
+        <button id="dvBtn" class="hudBtn">按住 DV · F</button>
+      </div>
+    </div>
+
+    <div id="ritual" class="hidden">
+      <div class="ritualHead">仪 轨 <span id="ritualNote">R 看旧带</span></div>
+      <div class="ritualRow">
+        <span class="ritualItem" id="ritualIncense">香 <b>2</b></span>
+        <span class="ritualItem" id="ritualBowl">水 <b>中</b></span>
+        <span class="ritualItem" id="ritualThread">线 <b>中</b></span>
+      </div>
+      <div class="ritualHint">F 显影　·　L 快门　·　E 调整　·　空格 起仪　·　Tab 记录</div>
+      <div id="ritualBattery" class="ritualBattery">DV 电 100%</div>
+    </div>
+    <div id="chapterHud" class="chapterHud hidden">
+      <div class="chapterKicker" id="chapterKicker">第 2 遍</div>
+      <div class="chapterName" id="chapterName">找她</div>
+      <div id="chapterObj" class="chapterObj"></div>
+      <div id="chapterCount" class="chapterCount"></div>
+    </div>
+
+    <div id="camMeta" class="hidden">
+      <div id="subject">拍摄对象：谢雨洁</div>
+      <div id="filmer">拍摄者：徐英子</div>
+      <div id="tape">带号：旧带 1999 · 素材</div>
+    </div>
+
+    <div id="subtitle" class="hidden"></div>
+    <div id="prompt" class="hidden"></div>
+    <div id="controls">W / A / S / D 移动　·　E 互动 / 调整　·　空格 起仪　·　L 快门　·　Tab 记录　·　按住 F / 右键 举起 DV　·　M 静音　·　Esc 暂停</div>
+
+    <div id="timeline" class="hidden">
+      <div class="tlTop"><span id="tlMode">回看 · 徐英子的 DV</span><span id="tlTime">00:18:06</span></div>
+      <div class="tlTrack">
+        <div class="tlGap"></div>
+        <div class="tlMark" style="left:18%"><span>18:06</span></div>
+        <div class="tlMark" style="left:62%"><span>41:12</span></div>
+        <div class="tlMark" style="left:76%"><span>42:30</span></div>
+        <div class="tlHead" id="tlHead"></div>
+      </div>
+      <div class="tlReconRow">
+        <div class="tlReconLabel">重建</div>
+        <div class="tlReconTrack" id="tlReconTrack">
+          <div class="tlReconBar" id="tlReconBar">
+            <div class="tlReconGap"></div>
+            <span class="tlReconMark" style="left:10%">18:06</span>
+            <span class="tlReconMark" style="left:65%">41:12</span>
+            <span class="tlReconMark" style="left:82.5%">42:30</span>
+          </div>
+        </div>
+        <div class="tlDelta" id="tlDelta">偏移 +8%</div>
+      </div>
+      <div class="tlHint">拖动重建条对齐　·　Q / E 微调　·　P 看重建　·　R 退出</div>
+    </div>
+
+    <div id="start" class="screen">
+      <div class="startInner">
+        <div class="startKicker">曾家村 · 2003.08.17　/　旧带 1998–1999</div>
+        <div class="startTitle">祭</div>
+        <div class="startSub">她 在 画 面 里</div>
+        <div class="startSeal">第三<br/>人称</div>
+        <div class="startLine"></div>
+        <p class="startText">她跟男友回乡驱邪。<br/>村里人说，二十年一次的大祭，只求风调雨顺。</p>
+        <p class="startText dim">你以为你在扮演她。<br/>直到你举起摄影机。</p>
+        <div class="warn">含尸体、血迹、惊悚暗示；无血腥特写。</div>
+        <div class="titleBtns">
+          <button id="startBtn">开始</button>
+          <button id="titleCreditsBtn" class="ghostBtn">制作名单</button>
+          <button id="titleMuteBtn" class="ghostBtn">声音：开</button>
+          <button id="titleFullBtn" class="ghostBtn">全屏</button>
+        </div>
+        <div class="startCtrl">W / A / S / D 移动　·　E 互动 / 调整　·　空格 起仪　·　L 快门　·　Tab 记录　·　按住 F / 右键 举起 DV　·　M 静音　·　Esc 暂停<br/>耳机建议；DV 素材为程序化占位片，正式版替换为实拍。</div>
+      </div>
+    </div>
+
+    <div id="case" class="screen hidden">
+      <div class="caseInner">
+        <div class="caseKicker">曾家村 · 供桌记录</div>
+        <h2 class="caseTitle">三遍带</h2>
+        <div class="caseGrid">
+          <section class="caseCol">
+            <h3>旧带 18:06</h3>
+            <div id="caseTape" class="caseBody"></div>
+          </section>
+          <section class="caseCol">
+            <h3>实物</h3>
+            <div id="caseClues" class="caseBody"></div>
+          </section>
+          <section class="caseCol">
+            <h3>候选</h3>
+            <div id="caseTakes" class="caseBody"></div>
+          </section>
+        </div>
+        <div id="caseNow" class="caseNow"></div>
+        <div class="caseHint">E 调整　·　L 快门　·　空格 起仪　·　R 看旧带　·　Tab 关闭</div>
+        <button id="caseBack" class="ghostBtn">关闭</button>
+      </div>
+    </div>
+
+    <div id="end" class="screen hidden">
+      <div class="endInner">
+        <div class="endKicker">垂直切片 · 试玩结束</div>
+        <div id="endTitle" class="endTitle">你一直在拍她。</div>
+        <div class="endLine"></div>
+        <p id="endText" class="endText">第三人称是徐英子的重建。<br/>摄像机是她的素材。</p>
+        <div id="endRun" class="endNote">用时 00:00</div>
+        <p class="endText dim">你从来没有变成她。</p>
+        <div class="endBtns">
+          <button id="restartBtn">重新开始</button>
+          <button id="endCreditsBtn" class="ghostBtn">制作名单</button>
+          <button id="endTitleBtn" class="ghostBtn">回到标题</button>
+        </div>
+        <div class="endNote">本片段为当前 vertical slice；完整章节制作中。DV 素材为程序化占位，正式版替换为实拍。</div>
+      </div>
+    </div>
+
+    <div id="credits" class="screen hidden">
+      <div class="creditsInner">
+        <div class="creditsKicker">《祭：她在画面里》</div>
+        <h2 class="creditsTitle">制作名单</h2>
+        <div class="creditsGrid">
+          <div><b>概念 / 剧本</b><span>改编自 40 分钟 found-footage《祭》</span></div>
+          <div><b>像素美术 / 场景</b><span>程序化 Canvas 2D；老妇四视图与等距参考由 MiniMax Design 生成</span></div>
+          <div><b>摄像机 / 视频</b><span>5s found-footage clip；像素 DV fallback 与 CRT</span></div>
+          <div><b>声音 / 音乐</b><span>MiniMax Design（seedaudio / minimax_music / minimax_tts）</span></div>
+          <div><b>语音</b><span>Chinese (Mandarin)_Kind-hearted_Elder · speech-2.8-hd</span></div>
+          <div><b>CRT 着色器</b><span>RetroZone ShaderOverlay（MIT）</span></div>
+          <div><b>引擎</b><span>HTML5 Canvas 2D + WebAudio；离线 file://</span></div>
+          <div><b>特别感谢</b><span>测试、反馈与所有被删掉的版本</span></div>
+        </div>
+        <p class="creditsNote">本作为 found-footage 恐怖 vertical slice；AI/程序化资产为占位，正式版替换为实拍与手绘像素。</p>
+        <div class="creditsMeta"><span>v2.8 · vertical slice</span><span>离线单包 · 目标 10–15 分钟</span><span>建议佩戴耳机</span></div>
+        <button id="creditsBack" class="ghostBtn">返回</button>
+      </div>
+    </div>
+
+    <div id="pause" class="screen hidden">
+      <div class="pauseInner">
+        <div class="pauseKicker">PAUSED · 徐英子的 DV</div>
+        <h2 class="pauseTitle">祭</h2>
+        <div class="pauseBtns">
+          <button id="resumeBtn">继续</button>
+          <button id="pauseMuteBtn" class="ghostBtn">声音：开</button>
+          <button id="pauseFlashBtn" class="ghostBtn">闪烁效果：标准</button>
+          <button id="pauseFullBtn" class="ghostBtn">全屏</button>
+          <button id="pauseCreditsBtn" class="ghostBtn">制作名单</button>
+          <button id="pauseRestartBtn" class="ghostBtn">重新开始</button>
+        </div>
+        <p id="pauseRun" class="pauseNote">本次用时 00:00</p>
+        <p class="pauseNote">Esc 继续　·　M 静音　·　v2.8 vertical slice</p>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="vendor/retrozone-shader.js"></script>
+<script src="assets/poster_data.js"></script>
+  <script src="assets/face_data.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

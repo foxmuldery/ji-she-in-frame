@@ -1,0 +1,495 @@
+:root{
+  --ink:#070806;
+  --paper:#d9cfb8;
+  --bone:#e8dfc8;
+  --dim:#8d8574;
+  --dimmer:#5d574a;
+  --red:#8e2a22;
+  --red-bright:#c04a38;
+  --ochre:#b8873f;
+  --film:#9fb7a7;
+  --line:rgba(216,201,168,.22);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  background:#000;color:var(--paper);
+  overflow:hidden;
+  font-family:"Courier New","PingFang SC","Hiragino Sans GB","Microsoft YaHei",monospace;
+  -webkit-font-smoothing:antialiased;
+  display:flex;align-items:center;justify-content:center;
+}
+#app{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+#stage{
+  position:relative;
+  width:min(97vw, calc(97vh * 16 / 9));
+  aspect-ratio:16/9;
+  background:#000;overflow:hidden;
+  box-shadow:0 0 140px rgba(0,0,0,.95),0 0 0 1px rgba(216,201,168,.08);
+  cursor:default;user-select:none;
+}
+canvas{position:absolute;display:block;}
+#pixel{
+  inset:0;width:100%;height:100%;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  z-index:1;
+}
+/* The camera canvas is the DV image (or the pixel fallback). It is kept
+   visible when .on; opacity 0 already hides it when the camera is off.
+   The RetroZone overlay sits above it and paints the CRT-treated copy. */
+#stage.shader #crt,#stage.shader #vignette{opacity:0;}
+#retrozone-overlay{pointer-events:none;}
+#crt{display:none;}
+#vignette{opacity:.42;}
+
+#camera{
+  top:0;left:50%;transform:translateX(-50%);
+  height:100%;width:auto;aspect-ratio:4/3;
+  background:#000;opacity:0;z-index:3;
+  pointer-events:none;
+  filter:contrast(1.05) saturate(0.85);
+  image-rendering:pixelated;
+}
+#camera.on{opacity:1;}
+/* First-person DV footage source (decode only) and visible footage canvas. */
+#dvVideo{
+  position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:75%;height:100%;object-fit:cover;
+  background:#000;opacity:0;z-index:0;
+  pointer-events:none;visibility:hidden;
+  image-rendering:pixelated;
+}
+#dvVideoCanvas{
+  position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:75%;height:100%;
+  background:#000;opacity:0;z-index:2;
+  transition:opacity .14s ease;pointer-events:none;
+  filter:contrast(1.05) saturate(0.85);
+  image-rendering:pixelated;
+  visibility:hidden;
+}
+#dvVideoCanvas.on{opacity:1;visibility:visible;}
+#stage.videoActive #camera{background:transparent;}
+/* CSS CRT fallback for the live footage layer. WebGL cannot upload a
+   file:// video-tainted canvas, so this layer gets scanlines/vignette/roll;
+   RetroZone still runs on the pixel camera and all review modes. */
+#dvCrt{
+  position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:75%;height:100%;z-index:4;pointer-events:none;display:none;
+  background:
+    repeating-linear-gradient(to bottom,rgba(0,0,0,.16) 0px,rgba(0,0,0,.16) 1px,rgba(0,0,0,0) 2px,rgba(0,0,0,0) 4px),
+    radial-gradient(ellipse at center,rgba(0,0,0,0) 50%,rgba(0,0,0,.52) 100%);
+  mix-blend-mode:multiply;
+}
+#dvCrt::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(to bottom,rgba(255,255,255,0) 0%,rgba(210,235,228,.055) 48%,rgba(255,255,255,0) 52%);
+  background-size:100% 42%;
+  animation:dvRoll 6.5s linear infinite;
+  mix-blend-mode:screen;
+}
+@keyframes dvRoll{
+  from{background-position:0 -55%;}
+  to{background-position:0 155%;}
+}
+#stage.videoActive #dvCrt,
+#stage.videoPending #dvCrt{display:block;}
+#stage.videoActive #vignette,
+#stage.videoPending #vignette{opacity:.22;}
+#crt{
+  position:absolute;inset:0;z-index:8;pointer-events:none;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.16) 0px,rgba(0,0,0,.16) 1px,rgba(0,0,0,0) 2px,rgba(0,0,0,0) 4px);
+  mix-blend-mode:multiply;opacity:.45;
+}
+#vignette{
+  position:absolute;inset:0;z-index:7;pointer-events:none;
+  background:radial-gradient(ellipse at center,rgba(0,0,0,0) 42%,rgba(0,0,0,.55) 100%);
+}
+#fade{position:absolute;inset:0;z-index:25;background:#000;opacity:0;transition:opacity .35s ease;pointer-events:none;}
+#fade.on{opacity:1;}
+
+/* HUD */
+#hud{
+  position:absolute;top:2.2%;left:2.2%;right:2.2%;z-index:12;
+  display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;
+}
+#role{
+  display:flex;align-items:baseline;gap:10px;
+  padding:6px 10px;background:rgba(8,10,8,.55);
+  border-left:2px solid var(--red);backdrop-filter:blur(2px);
+}
+#roleName{font:15px/1 "PingFang SC","Courier New",monospace;letter-spacing:.16em;color:var(--bone);}
+#mode{font:10px/1 "Courier New",monospace;letter-spacing:.2em;color:var(--dim);}
+#hudRight{display:flex;gap:8px;pointer-events:auto;}
+.hudBtn{
+  cursor:pointer;background:rgba(8,10,8,.55);
+  border:1px solid rgba(216,201,168,.25);color:var(--paper);
+  font:10px/1 "Courier New",monospace;letter-spacing:.12em;padding:7px 9px;
+  transition:border-color .15s,background .15s;
+}
+.hudBtn:hover{border-color:rgba(216,201,168,.6);background:rgba(20,22,17,.8);}
+#dvBtn.active{border-color:var(--red-bright);color:#f2c9b8;background:rgba(40,10,8,.8);}
+#reviewBtn.active{border-color:var(--ochre);color:var(--bone);background:rgba(50,36,12,.8);}
+
+#timeline{
+  position:absolute;left:3%;right:3%;bottom:2.2%;z-index:18;
+  padding:8px 12px 7px;
+  background:rgba(6,7,5,.88);
+  border:1px solid rgba(216,201,168,.28);
+  backdrop-filter:blur(3px);
+  transition:opacity .2s;
+}
+.tlTop{display:flex;justify-content:space-between;font:11px/1 "Courier New",monospace;letter-spacing:.12em;color:var(--dim);}
+#tlTime{color:var(--bone);}
+.tlTrack{position:relative;height:16px;margin-top:7px;background:rgba(216,201,168,.10);}
+.tlGap{position:absolute;left:20%;width:40%;top:6px;height:4px;background:rgba(142,42,34,.55);}
+.tlMark{position:absolute;top:0;height:16px;border-left:1px solid rgba(216,201,168,.38);}
+.tlMark span{position:absolute;top:17px;left:2px; font:9px/1 "Courier New",monospace;color:rgba(216,201,168,.38);white-space:nowrap;}
+.tlHead{position:absolute;top:-2px;height:20px;width:2px;background:var(--bone);box-shadow:0 0 8px rgba(232,223,200,.7);}
+.tlHint{margin-top:18px;color:rgba(216,201,168,.45);font:10px/1.4 "Courier New",monospace;letter-spacing:.06em;}
+
+/* camera meta */
+#camMeta{
+  position:absolute;top:9%;left:2.2%;z-index:14;
+  padding:8px 11px;
+  background:linear-gradient(90deg,rgba(6,7,5,.82),rgba(6,7,5,0));
+  border-left:1px solid rgba(159,183,167,.5);
+  pointer-events:none;
+  transition:opacity .2s;
+}
+#tape{font:10px/1.6 "PingFang SC","Courier New",monospace;letter-spacing:.12em;color:rgba(216,201,168,.55);margin-top:3px;}
+#subject{font:12px/1.5 "PingFang SC","Courier New",monospace;letter-spacing:.12em;color:var(--bone);}
+#filmer{margin-top:4px;font:12px/1.5 "PingFang SC","Courier New",monospace;letter-spacing:.12em;color:var(--film);opacity:0;transition:opacity .6s ease;}
+#filmer.show{opacity:1;}
+
+/* text */
+#subtitle{
+  position:absolute;left:50%;bottom:9%;transform:translateX(-50%);
+  z-index:14;max-width:78%;padding:9px 16px;
+  background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.72) 18%,rgba(0,0,0,.72) 82%,rgba(0,0,0,0));
+  color:var(--bone);font:15px/1.65 "PingFang SC","Courier New",monospace;
+  letter-spacing:.04em;text-align:center;text-shadow:0 1px 3px #000,0 0 18px rgba(0,0,0,.9);
+  transition:opacity .22s;pointer-events:none;
+}
+#prompt{
+  position:absolute;left:50%;bottom:17%;transform:translateX(-50%);
+  z-index:14;padding:6px 12px;
+  border:1px solid rgba(216,201,168,.28);background:rgba(6,7,5,.72);
+  color:rgba(232,223,200,.85);font:11px/1.4 "Courier New","PingFang SC",monospace;
+  letter-spacing:.12em;white-space:nowrap;pointer-events:none;
+  transition:opacity .2s;
+}
+#controls{
+  position:absolute;left:50%;bottom:2%;transform:translateX(-50%);
+  z-index:10;color:rgba(216,201,168,.36);
+  font:10px/1.4 "Courier New",monospace;letter-spacing:.08em;
+  white-space:nowrap;pointer-events:none;
+}
+
+/* screens */
+.screen{
+  position:absolute;inset:0;z-index:30;
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 42%,rgba(36,28,18,.55) 0%,rgba(4,5,4,.96) 58%,#000 100%);
+  cursor:default;
+}
+.screen.hidden{display:none;}
+.startInner,.endInner{position:relative;text-align:center;max-width:74%;}
+.startKicker,.endKicker{color:var(--dim);font:10px/1 "Courier New",monospace;letter-spacing:.42em;margin-bottom:22px;}
+.startTitle{
+  font:clamp(90px,14vw,190px)/1 "Songti SC","STSong","SimSun",serif;
+  color:var(--bone);letter-spacing:.06em;
+  text-shadow:0 0 60px rgba(216,201,168,.12),0 8px 40px rgba(0,0,0,.9);
+}
+.startSub{
+  margin-top:38px;color:var(--ochre);
+  font:clamp(13px,1.5vw,18px)/1 "Courier New",monospace;letter-spacing:.9em;text-indent:.9em;
+}
+.startSeal{
+  position:absolute;right:-8%;top:14%;width:64px;height:64px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(192,74,56,.7);color:#c96a55;
+  font:12px/1.35 "Songti SC",serif;letter-spacing:.18em;transform:rotate(4deg);
+  background:rgba(80,16,12,.18);
+}
+.startLine,.endLine{width:46px;height:1px;background:rgba(216,201,168,.35);margin:24px auto;}
+.startText{color:rgba(232,223,200,.78);font:13px/1.9 "PingFang SC",serif;letter-spacing:.08em;}
+.startText.dim{color:rgba(216,201,168,.45);margin-top:9px;}
+.warn{margin-top:18px;color:rgba(192,74,56,.8);font:10px/1.5 "Courier New",monospace;letter-spacing:.12em;}
+#startBtn,#restartBtn{
+  margin-top:24px;cursor:pointer;background:rgba(142,42,34,.14);
+  border:1px solid rgba(216,201,168,.55);color:var(--bone);
+  font:14px/1 "Courier New","PingFang SC",monospace;letter-spacing:.42em;text-indent:.42em;
+  padding:16px 40px;transition:background .2s,border-color .2s,color .2s;
+}
+#startBtn{min-width:150px;}
+#startBtn:hover,#restartBtn:hover{background:rgba(142,42,34,.28);border-color:var(--bone);color:#fff;}
+.startCtrl{
+  display:inline-block;margin-top:18px;padding:6px 10px;
+  background:rgba(6,6,5,.55);border-top:1px solid rgba(216,201,168,.12);
+  color:rgba(216,201,168,.55);font:9px/1.7 "Courier New",monospace;letter-spacing:.06em;
+}
+
+.endTitle{font:clamp(34px,5vw,58px)/1.1 "Songti SC","STSong",serif;color:#f6efdd;letter-spacing:.18em;text-shadow:0 2px 24px rgba(0,0,0,.85);}
+.endText{margin-top:16px;color:rgba(242,235,218,.92);font:14px/2 "PingFang SC",serif;letter-spacing:.06em;}
+.endText.dim{color:rgba(216,201,168,.62);}
+.endNote{margin-top:18px;color:rgba(216,201,168,.48);font:10px/1.6 "Courier New",monospace;letter-spacing:.08em;}
+
+.hidden{opacity:0 !important;visibility:hidden !important;}
+
+@media (max-width:720px){
+  #controls{display:none;}
+  .startSeal{display:none;}
+  .startInner,.endInner{max-width:86%;}
+  #subtitle{font-size:12px;bottom:12%;max-width:90%;}
+  #roleName{font-size:12px;}
+  .hudBtn{font-size:9px;padding:6px; }
+  #camMeta{top:11%;}
+}
+
+/* Asset capture: hide all UI chrome for a clean iso-room still. */
+body.clean #hud,
+body.clean #camMeta,
+body.clean #subtitle,
+body.clean #prompt,
+body.clean #controls,
+body.clean #timeline,
+body.clean #crt,
+body.clean #vignette,
+body.clean #fade{display:none !important;}
+
+#stage.reviewing #subtitle{bottom:23%;}
+#stage.reviewing #prompt{bottom:27%;}
+#stage.reviewing #controls{opacity:0;}
+.tlReconRow{display:flex;align-items:center;gap:8px;margin-top:16px;}
+.tlReconLabel{width:24px;flex:none;font:9px/1 "Courier New",monospace;color:var(--film);letter-spacing:.08em;}
+.tlReconTrack{position:relative;flex:1;height:14px;background:rgba(159,183,167,.08);}
+.tlReconBar{position:absolute;top:0;height:14px;cursor:ew-resize;touch-action:none;
+  background:rgba(159,183,167,.16);border:1px solid rgba(159,183,167,.32);}
+.tlReconBar.aligned{border-color:rgba(192,74,56,.75);}
+.tlReconGap{position:absolute;left:12.5%;width:50%;top:0;height:100%;background:rgba(142,42,34,.32);}
+.tlReconBar.aligned .tlReconGap{background:rgba(192,74,56,.58);box-shadow:0 0 10px rgba(192,74,56,.35);}
+.tlReconMark{position:absolute;top:-11px;transform:translateX(-50%);font:9px/1 "Courier New",monospace;
+  color:rgba(159,183,167,.65);white-space:nowrap;}
+.tlDelta{width:112px;flex:none;text-align:right;font:9px/1 "Courier New",monospace;color:var(--dim);letter-spacing:.04em;}
+
+
+/* ---- key art start screen ---- */
+#start{
+  background:
+    linear-gradient(90deg, rgba(6,6,5,.94) 0%, rgba(6,6,5,.78) 34%, rgba(6,6,5,.22) 72%, rgba(6,6,5,.62) 100%),
+    url('assets/images/ji_keyart_v1.jpg') center/cover no-repeat;
+}
+#start .startTitle, #start .startSeal{display:none;}
+#start .startInner{
+  background:linear-gradient(90deg, rgba(6,6,5,.9), rgba(6,6,5,.55) 68%, rgba(6,6,5,.12));
+  border-left:1px solid rgba(216,201,168,.24);
+  padding-left:26px;
+}
+#start .startSub{font-size:28px;letter-spacing:.32em;}
+#start .startKicker{color:#d8c9a8;}
+
+
+/* ---- title / end / credits / pause ---- */
+.titleBtns, .endBtns{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px;}
+.titleBtns #startBtn, .endBtns #restartBtn{margin-top:0;}
+.ghostBtn{
+  background:transparent;border:1px solid rgba(216,201,168,.30);
+  color:var(--bone);font:12px/1 "PingFang SC","Courier New",monospace;
+  letter-spacing:.14em;padding:10px 16px;min-height:38px;cursor:pointer;
+  transition:border-color .2s,background .2s;
+}
+.ghostBtn:hover{border-color:rgba(216,201,168,.75);background:rgba(216,201,168,.06);}
+#credits .creditsInner{
+  width:min(880px,88vw);max-height:88%;overflow:auto;
+  background:linear-gradient(160deg,rgba(11,12,10,.985),rgba(4,5,4,.995));
+  border:1px solid rgba(216,201,168,.26);padding:40px 46px 34px;
+  box-shadow:0 30px 90px rgba(0,0,0,.85),inset 0 1px 0 rgba(232,223,200,.05);
+}
+#pause .pauseInner{
+  width:min(440px,88vw);max-height:88%;overflow:auto;
+  background:linear-gradient(160deg,rgba(11,12,10,.97),rgba(4,5,4,.99));
+  border:1px solid rgba(216,201,168,.26);padding:32px 36px;
+  box-shadow:0 30px 90px rgba(0,0,0,.85),inset 0 1px 0 rgba(232,223,200,.05);
+}
+#end{
+  background:
+    radial-gradient(ellipse at 50% 34%,rgba(28,24,16,.34) 0%,rgba(4,5,4,.86) 56%,rgba(0,0,0,.97) 100%),
+    linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.55));
+}
+.endKicker{color:rgba(216,201,168,.72);font-size:11px;}
+#credits{background:rgba(4,5,4,.9);backdrop-filter:blur(3px);}
+#credits .creditsInner::before{
+  content:'';display:block;width:54px;height:2px;background:var(--red-bright);
+  margin:0 0 20px;
+}
+.creditsKicker,.pauseKicker{
+  font:11px/1 "Courier New",monospace;letter-spacing:.26em;
+  color:rgba(192,154,90,.85);text-transform:uppercase;
+}
+.creditsTitle,.pauseTitle{
+  font-family:"Songti SC","STSong",serif;font-weight:400;
+  color:#f4ecda;margin:12px 0 22px;letter-spacing:.12em;
+}
+.creditsTitle{font-size:36px;}
+.pauseTitle{font-size:64px;line-height:1;color:#d84a38;margin:14px 0 6px;}
+.creditsGrid{display:grid;grid-template-columns:1fr 1fr;gap:18px 36px;}
+.creditsGrid div{display:flex;flex-direction:column;gap:5px;border-left:1px solid rgba(216,201,168,.18);padding-left:14px;}
+.creditsGrid b{font:11px/1.4 "Courier New",monospace;letter-spacing:.18em;color:rgba(226,214,188,.82);font-weight:400;}
+.creditsGrid span{font:13px/1.75 "PingFang SC",sans-serif;color:rgba(246,240,226,.97);}
+.creditsMeta{display:flex;gap:18px;flex-wrap:wrap;margin:-6px 0 22px;font:10px/1.6 "Courier New",monospace;color:rgba(159,183,167,.75);letter-spacing:.1em;}
+.creditsNote{margin:26px 0 12px;font:11.5px/1.8 "PingFang SC",sans-serif;color:rgba(196,186,164,.88);}
+#pause{background:rgba(4,5,4,.56);backdrop-filter:blur(2px);}
+.pauseBtns{display:flex;flex-direction:column;gap:9px;margin-top:22px;align-items:stretch;}
+.pauseBtns button{
+  width:100%;min-width:0;text-align:left;cursor:pointer;
+  background:transparent;border:1px solid rgba(216,201,168,.28);color:#f0e8d6;
+  font:13px/1 "PingFang SC","Courier New",monospace;letter-spacing:.2em;
+  padding:14px 18px;transition:background .18s,border-color .18s,color .18s;
+}
+.pauseBtns button:hover{border-color:rgba(216,201,168,.7);background:rgba(216,201,168,.06);}
+.pauseBtns #resumeBtn{
+  background:rgba(142,42,34,.16);border-color:rgba(192,74,56,.62);color:#f4e8d2;
+}
+.pauseBtns #resumeBtn:hover{background:rgba(142,42,34,.3);border-color:var(--red-bright);}
+.pauseNote{margin-top:18px;font:10px/1.8 "Courier New",monospace;color:rgba(160,152,132,.7);letter-spacing:.06em;}
+body.paused #pixel{filter:saturate(.72) brightness(.84);}
+@media (max-width:640px){
+  #credits .creditsInner{padding:26px 22px;}
+  #pause .pauseInner{padding:26px 22px;}
+  .creditsGrid{grid-template-columns:1fr;}
+}
+
+/* pause chrome: keep the frozen frame readable but clearly inactive */
+body.paused #hud,
+body.paused #controls,
+body.paused #camMeta,
+body.paused #subtitle,
+body.paused #prompt,
+body.paused #timeline,
+body.paused #hud,
+body.paused #controls{opacity:0 !important;pointer-events:none !important;}
+body.paused #pauseBtn{opacity:0;pointer-events:none;}
+#pauseBtn{order:-1;}
+
+/* Camera / tape-review presentation: the footage owns the frame. */
+#stage.cameraOn #hud,
+#stage.reviewing #hud{opacity:0 !important;pointer-events:none !important;}
+#stage.cameraOn #controls,
+#stage.reviewing #controls{opacity:0 !important;}
+#stage.cameraOn #prompt,
+#stage.reviewing #prompt{bottom:20%;}
+
+/* Soft-flash accessibility profile (also honours OS reduced motion). */
+body.no-flash #dvCrt::after{animation:none;opacity:.18;}
+body.no-flash #crt{opacity:.22;}
+@media (prefers-reduced-motion: reduce){
+  #dvCrt::after{animation:none;}
+  #roleName,#mode{transition:none;}
+}
+
+/* End card: drop gameplay chrome so the final frame is clean. */
+body.ended #hud,
+body.ended #controls,
+body.ended #camMeta,
+body.ended #subtitle,
+body.ended #prompt,
+body.ended #timeline{opacity:0 !important;pointer-events:none !important;}
+
+body.nofx *, body.nofx *::before, body.nofx *::after{
+  transition:none !important;animation:none !important;
+}
+
+/* Screenshot helper: keep the diegetic camera OSD, drop tutorial text. */
+body.noui #prompt,
+body.noui #subtitle,
+body.noui #controls{display:none !important;}
+
+/* Keyboard focus: the game is fully playable without a mouse. */
+button:focus-visible{
+  outline:2px solid var(--red-bright);
+  outline-offset:3px;
+}
+
+/* Ritual tracker: a small diegetic checklist, not a quest log. */
+#ritual{
+  position:absolute;left:2.2%;top:8.4%;z-index:12;width:226px;
+  padding:8px 10px 9px;background:rgba(7,8,6,.72);
+  border-left:2px solid rgba(192,74,56,.75);
+  backdrop-filter:blur(2px);pointer-events:none;
+  font-family:"Courier New","PingFang SC",monospace;
+}
+.ritualHead{
+  display:flex;justify-content:space-between;align-items:baseline;
+  color:rgba(216,201,168,.62);font-size:9px;letter-spacing:.2em;
+  margin-bottom:7px;
+}
+#ritualNote{color:rgba(192,74,56,.85);font-size:9px;letter-spacing:.08em;}
+.ritualRow{display:flex;gap:6px;}
+.ritualItem{
+  flex:1;text-align:center;padding:5px 2px;
+  border:1px solid rgba(216,201,168,.18);
+  color:rgba(232,223,200,.7);font-size:10px;letter-spacing:.1em;
+}
+.ritualItem b{color:rgba(232,223,200,.9);font-weight:400;margin-left:2px;}
+.ritualItem.ok{
+  border-color:rgba(192,74,56,.65);
+  color:#e8dfc8;background:rgba(142,42,34,.16);
+}
+.ritualItem.ok b{color:#f0b38a;}
+.ritualHint{margin-top:6px;color:rgba(216,201,168,.32);font-size:8px;letter-spacing:.1em;}
+#chapterHud{
+  position:absolute;left:2.2%;top:8.4%;z-index:12;width:226px;
+  padding:9px 11px 10px;background:rgba(7,8,6,.74);
+  border-left:2px solid rgba(192,74,56,.8);
+  backdrop-filter:blur(2px);pointer-events:none;
+  font-family:"Courier New","PingFang SC",monospace;
+}
+.chapterKicker{font:9px/1.2 "Courier New",monospace;letter-spacing:.22em;color:rgba(192,74,56,.9);}
+.chapterName{font-family:"Songti SC","STSong",serif;font-size:20px;color:#f0e7d2;margin:5px 0 6px;letter-spacing:.14em;}
+.chapterObj{font-size:10px;line-height:1.65;color:rgba(216,201,168,.6);}
+.chapterCount{margin-top:6px;font-size:10px;letter-spacing:.12em;color:rgba(216,201,168,.42);}
+body.clean #chapterHud,
+body.paused #chapterHud,
+body.ended #chapterHud,
+#stage.cameraOn #chapterHud,
+#stage.reviewing #chapterHud{display:none !important;}
+body.clean #ritual,
+body.paused #ritual,
+body.ended #ritual,
+#stage.cameraOn #ritual,
+#stage.reviewing #ritual{display:none !important;}
+
+/* Case board: the player's own notes, not a quest log. */
+#case{background:rgba(4,5,4,.9);backdrop-filter:blur(3px);}
+#case .caseInner{
+  width:min(900px,90vw);max-height:88%;overflow:auto;
+  background:linear-gradient(160deg,rgba(11,12,10,.985),rgba(4,5,4,.995));
+  border:1px solid rgba(216,201,168,.26);padding:34px 38px 28px;
+  box-shadow:0 30px 90px rgba(0,0,0,.85),inset 0 1px 0 rgba(232,223,200,.05);
+}
+.caseKicker{font:10px/1 "Courier New",monospace;letter-spacing:.28em;color:rgba(192,154,90,.8);}
+.caseTitle{font-family:"Songti SC","STSong",serif;font-weight:400;color:#f4ecda;font-size:34px;margin:10px 0 20px;letter-spacing:.14em;}
+.caseGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+.caseCol{border-left:1px solid rgba(216,201,168,.18);padding-left:14px;min-width:0;}
+.caseCol h3{font:11px/1.4 "Courier New",monospace;letter-spacing:.18em;color:rgba(216,201,168,.6);font-weight:400;margin-bottom:10px;}
+.caseBody{font:12px/1.9 "PingFang SC","Courier New",monospace;color:rgba(240,232,214,.9);}
+.caseBody .row{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed rgba(216,201,168,.12);padding:3px 0;}
+.caseBody .row span:first-child{color:rgba(216,201,168,.6);}
+.caseBody .row.unknown span:last-child{color:rgba(192,74,56,.85);}
+.caseBody .take{display:grid;grid-template-columns:26px 1fr;gap:4px;padding:4px 0;border-bottom:1px dashed rgba(216,201,168,.12);}
+.caseBody .take b{font-weight:400;color:rgba(216,201,168,.7);}
+.caseBody .take.now{background:rgba(142,42,34,.16);padding-left:6px;margin-left:-6px;}
+.caseBody .note{margin-top:10px;color:rgba(192,154,90,.78);font-size:11px;}
+.caseNow{margin-top:20px;padding:10px 12px;border-top:1px solid rgba(216,201,168,.16);border-bottom:1px solid rgba(216,201,168,.16);font:12px/1.6 "Courier New","PingFang SC",monospace;color:#e8dfc8;letter-spacing:.08em;}
+.caseNow b{color:#d84a38;font-weight:400;}
+.caseNow .scanLine{display:inline-block;margin-top:6px;color:rgba(150,220,208,.8);font-size:11px;letter-spacing:.08em;}
+.caseHint{margin:12px 0 16px;font:10px/1.6 "Courier New",monospace;color:rgba(216,201,168,.42);letter-spacing:.08em;}
+body.caseOpen #pixel{filter:saturate(.65) brightness(.7);}
+@media (max-width:820px){
+  #case .caseInner{padding:26px 20px;}
+  .caseGrid{grid-template-columns:1fr;}
+}
+
+.ritualBattery{margin-top:7px;font:9px/1.4 "Courier New",monospace;letter-spacing:.08em;color:rgba(216,201,168,.38);}
+.ritualBattery.low{color:rgba(192,74,56,.9);}

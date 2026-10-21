@@ -1,0 +1,89 @@
+{
+  "source": "MiniMax Design desktop app (MCP tools), 2026-10-19",
+  "generation_models": [
+    "nano_banana (images)",
+    "minimax_music (ambience/music)",
+    "seedaudio (SFX)",
+    "minimax_v3 (video)"
+  ],
+  "images": [
+    {
+      "file": "images/ji_keyart_v1.png",
+      "size": "2752x1536",
+      "use": "title/key art, start-screen background"
+    },
+    {
+      "file": "images/ji_iso_room_ref_v1.png",
+      "size": "1408x768",
+      "use": "isometric pixel-room style reference"
+    },
+    {
+      "file": "images/ji_oldwoman_model_sheet_v1.png",
+      "size": "2752x1536",
+      "use": "old-woman 4-view pixel model sheet"
+    },
+    {
+      "file": "images/ji_clip_v1_poster.png",
+      "size": "1344x768",
+      "use": "video poster"
+    },
+    {
+      "file": "images/ji_keyart_v1.jpg",
+      "size": "2752x1536",
+      "use": "runtime title/key-art background (JPEG export)"
+    },
+    {
+      "file": "images/ji_clip_v1_poster.jpg",
+      "size": "1344x768",
+      "use": "runtime DV poster / decode-wait frame"
+    }
+  ],
+  "audio": [
+    {
+      "file": "audio/ambience_45s.mp3",
+      "duration": "45s",
+      "use": "looped room-tone bed"
+    },
+    {
+      "file": "audio/music_cue_60s.mp3",
+      "duration": "60s",
+      "use": "sparse score cue"
+    },
+    {
+      "file": "audio/breath.wav",
+      "duration": "6s",
+      "use": "male breath SFX"
+    },
+    {
+      "file": "audio/scream.wav",
+      "duration": "~2s",
+      "use": "cut-off scream SFX"
+    },
+    {
+      "file": "audio/squelch.wav",
+      "duration": "~3s",
+      "use": "wet squelch SFX"
+    }
+  ],
+  "video": [
+    {
+      "file": "video/footage_clip_5s.mp4",
+      "duration": "5.17s",
+      "size": "1344x768",
+      "fps": 24,
+      "use": "found-footage insert / camera layer placeholder"
+    }
+  ],
+  "prompts": "prompts/*.txt",
+  "notes": [
+    "Key-art date stamp reads 1998-11-03 from the generation prompt; the game's diegetic date is 2003-08-17.",
+    "Generated assets are placeholders/references; the camera's scripted beats remain the pixel DV unless the integration swaps in the clip.",
+    "All assets are local; no external CDN."
+  ],
+  "runtime_build": {
+    "date": "2026-10-20",
+    "images": "ji_keyart_v1.jpg and ji_clip_v1_poster.jpg are JPEG exports of the PNG masters for the shelf build.",
+    "audio": "One-shot SFX and voice lines are 128 kbps MP3 in assets/audio; source WAVs are kept in assets/audio/source. window_rain.wav and bulb_hum.wav remain WAV for seamless loops.",
+    "release_zip": "dist/ji-she-in-frame-v1.0.zip (runtime-only; excludes source WAVs, prompts and reference masters)."
+  }
+}

@@ -1,0 +1,28 @@
+@@ -3391,6 +3567,26 @@
+   if (params.get('test')==='1') setTimeout(runTest,400);
+ }
+ window.__jiThird={
+-  state, setCamera, interact, choose, startGame, runTest
++  state, setCamera, interact, choose, startGame, runTest,
++  playCue, startAmbience, stopAmbience,
++  audioStatus(){
++    return {
++      muted:state.muted,
++      bed:bedEl?{
++        fileName:AUDIO_FILES.ambience,
++        volume:+bedEl.volume.toFixed(3),
++        paused:bedEl.paused,
++        muted:bedEl.muted,
++        readyState:bedEl.readyState
++      }:null,
++      loaded:Object.keys(mediaEls).filter(k=>!!mediaEls[k]),
++      tracks:Object.keys(mediaEls).reduce((o,k)=>{
++        const el=mediaEls[k];
++        if (el) o[k]={volume:+el.volume.toFixed(3),paused:el.paused,muted:el.muted,readyState:el.readyState,currentTime:+el.currentTime.toFixed(2)};
++        return o;
++      },{}),
++      cues:Object.keys(MEDIA_CUES)
++    };
++  }
+ };
+ })();
