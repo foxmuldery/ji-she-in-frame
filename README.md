@@ -6,6 +6,11 @@
 
 ![key art](assets/images/ji_keyart_v1.jpg)
 
+> **GitHub**：<https://github.com/foxmuldery/ji-she-in-frame>  
+> **下载 / Release**：<https://github.com/foxmuldery/ji-she-in-frame/releases/tag/v2.8.0>  
+> **完整交接报告**：[`HANDOVER_FINAL.md`](HANDOVER_FINAL.md)  
+> **第三方评估（时长 FAIL）**：[`EVALUATION_HANDOVER.md`](EVALUATION_HANDOVER.md)
+
 > 你以为你在扮演她。  
 > 直到你举起摄影机。
 
