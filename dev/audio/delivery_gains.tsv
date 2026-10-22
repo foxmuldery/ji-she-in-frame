@@ -1,0 +1,33 @@
+# Gain applied per file when swapping in the 2026-10-22 MiniMax re-delivery.
+# The new masters were deliberately left quiet (voice peaks ~-14 dBFS, one-shots
+# ~-20 dBFS), which would drop them ~10 dB under the shipped mix. Each value is
+# `old_peak_dBFS - new_peak_dBFS`, so the in-engine volume table keeps working
+# unchanged and only the source content / bitrate changes.
+ambience_45s.mp3	-2.0
+breath.mp3	+12.9
+bulb_hum.wav	-5.8
+chair_scrape.mp3	+3.5
+clock_tick.mp3	+5.1
+collapse.mp3	+1.1
+collapse2.mp3	-1.6
+door_creak.mp3	+5.3
+hunt_empty.mp3	-14.2
+incense_whisper.mp3	+2.6
+moan.mp3	-0.5
+music_cue_60s.mp3	+4.4
+music_eerie_bed_90s.mp3	+3.9
+oldwoman_breath.mp3	+10.7
+reveal_impact.mp3	+0.6
+room_shift.mp3	-1.3
+scan_ping.mp3	-17.3
+scream.mp3	+4.7
+shriek.mp3	-0.2
+shutter.mp3	+12.5
+squelch.mp3	+2.8
+voice_hand.mp3	+9.9
+voice_open.mp3	+4.1
+voice_turn.mp3	+9.2
+voice_what.mp3	+7.2
+water_drip.mp3	+8.4
+wet_steps.mp3	+4.6
+window_rain.wav	+5.4

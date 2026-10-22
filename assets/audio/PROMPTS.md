@@ -168,3 +168,16 @@ Every duration below was read back from the delivered file with `ffprobe`; peaks
 - The source door creak, clock tick and old-woman breath were very quiet (peaks −30 to −39 dBFS) and needed 24–30 dB of make-up gain. Listen for raised noise floor at high monitor level.
 - These are generated assets, not recordings: foley realism is approximate. Voice timbre is a library voice, not a bespoke performance; the words and timing are correct, but a director may want a second take with different emotion values.
 - No human listening pass was possible in this session; quality judgements here are based on prompts, waveform/spectral statistics, and the TTS subtitle alignment.
+
+## 2026-10-21 batch (content pass — MiniMax Design `seedaudio`)
+
+Gateway: `POST http://127.0.0.1:8001/api/generate/speech` with `backend: seedaudio`, field `prompt` (not `text`). Sources in `assets/audio/source/src_*.wav`; runtime MP3 in `assets/audio/`.
+
+| Runtime | Cue in game |
+|---|---|
+| `shutter.mp3` | First-beat DV photo (`L`) during chapter 1 ritual |
+| `room_shift.mp3` | Chapter 2 hide hunt — layout shift (`shiftHuntLayout`) |
+| `hunt_empty.mp3` | Chapter 2 wrong hide spot |
+| `scan_ping.mp3` | Chapter 1 DV scan reveal (`completeCameraScan`) |
+
+Trimmed with `ffmpeg`, 128 kbps MP3. Runtime audio check is **28** files (`Object.keys(AUDIO_FILES)`).
