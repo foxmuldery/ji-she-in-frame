@@ -2,11 +2,11 @@
  "v": 1,
  "kdf": "PBKDF2-SHA256",
  "iter": 310000,
- "salt": "TRRKPNir2E5k5jGHC7F4KA==",
+ "salt": "gKBH1FXLx3ZJN7+JnNwnSw==",
  "check": {
   "v": 1,
-  "iv": "4ZZYx3Yo89r/8Su4",
-  "ct": "w/7mvHgTzkalHqpnzVWq28KTj70IX8cApo7BNuV4FmBUdu0="
+  "iv": "WeZKhnyIrnKpLteY",
+  "ct": "C8CBfJW7z0O08PkwGHi1wKpwjbY6ysGF9bv9aG+5FK3VQX8="
  },
  "files": {
   "game": "game.enc",
