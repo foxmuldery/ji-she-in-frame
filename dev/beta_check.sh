@@ -43,6 +43,8 @@ if [[ -x "$CHROME" ]]; then
   echo "$adom" | rg -q '时长中位' || { echo "FAIL: aggregate duration missing"; exit 1; }
   echo "$adom" | rg -q '停在' || { echo "FAIL: aggregate drop-off missing"; exit 1; }
   echo "$adom" | rg -q '第一遍 · 供桌' || { echo "FAIL: aggregate chapter table missing"; exit 1; }
+  echo "$adom" | rg -q '复制汇总 Markdown' || { echo "FAIL: aggregate export missing"; exit 1; }
+  echo "$adom" | rg -q '停在 第 3 遍' || { echo "FAIL: aggregate drop-off wrong"; exit 1; }
 else
   echo "WARN: Chrome not found — skipped browser checks"
 fi

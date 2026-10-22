@@ -155,6 +155,9 @@ textarea{
 (function(){
 'use strict';
 const S={ sessions:[], active:0, filter:'story' };
+// Hoisted above the demo loader: ?demo=1 renders an aggregate before the
+// script body finishes, and a `const` down there would still be in its TDZ.
+const CHAP_NAME={1:'第一遍 · 供桌',2:'第二遍 · 找她',3:'第三遍 · 拍异常',4:'第四遍 · 躲她',5:'最后一遍 / 走廊 / 暗房'};
 const $=(s,r)=>(r||document).querySelector(s);
 const el=(t,c,h)=>{ const n=document.createElement(t); if(c)n.className=c; if(h!=null)n.innerHTML=h; return n; };
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -217,6 +220,7 @@ function demoSession(opt){
   const push=(type,o)=>{ ev.push(Object.assign({t:t,type:type},o||{})); };
   push('begin',{ua:'（示例数据，不是真实记录）',viewport:[1440,900]});
   push('state',{d:{chapter:1,scene:'room'},first:1});
+  push('chapter',{n:1});
   const say=(text,ms)=>{ push('say',{text:text}); t+=ms; };
   const prompt=(text,ms)=>{ push('prompt',{text:text}); t+=ms; };
   const keys=(k,n)=>{ for(let i=0;i<n;i++){ push('key',{k:k,down:1}); push('key',{k:k,down:0}); t+=140; } };
@@ -248,10 +252,14 @@ function demoSession(opt){
   keys('F',2); keys('L',1);
   push('state',{d:{'final.photo':1}});
   t+=6400;
-  push('chapter',{n:5}); t+=1300;
+  t+=1300;
   say('暗房的门在身后合上。她坐回椅子。',3800);
   keys('Q',1); t+=2400;
-  if(!stopAt){
+  if(stopAt){
+    // cut the recording where the player quit, so "停在第 N 遍" is real
+    const cut=ev.findIndex(e=>e.type==='chapter'&&e.n===stopAt+1);
+    if(cut>0){ t=ev[cut].t; ev.length=cut; }
+  } else {
     push('ending',{kind:ending}); t+=2200;
     push('endscreen',{title:ENDING_TITLE[ending]||'结局'});
   }
@@ -261,7 +269,7 @@ function demoSession(opt){
     session:{id:'demo-'+(opt.id||'0001'), tester:opt.tester||'示例', startedAt:new Date().toISOString(),
       notes:'这是合成示例，用来演示复盘页长什么样。', viewport:[1440,900], dpr:2,
       userAgent:'示例数据'},
-    summary:{durationMs:t, gameSeconds:t/1000, ending:stopAt?'':ending, chapter:stopAt||5, keys:60,
+    summary:{durationMs:t, gameSeconds:t/1000, ending:stopAt?'':ending, chapter:stopAt||5, keys:ev.filter(e=>e.type==='key').length,
       progress:{photos:3,corridorSeen:3,darkSeen:3,spliced:true,printed:true},
       chapterTimes:[{chapter:1,ms:1},{chapter:2,ms:1}]},
     events:ev};
@@ -396,13 +404,12 @@ function quant(list,q){
   const i=Math.min(a.length-1,Math.max(0,Math.round((a.length-1)*q)));
   return a[i];
 }
-function renderAggregate(){
-  const box=el('div','agg');
+function aggregateStats(){
   const n=S.sessions.length;
   const ends={help:0,film:0,bad:0,'':0};
   const durs=[], dursGame=[];
   const byChapter={1:[],2:[],3:[],4:[],5:[]};
-  const stops=[];
+  const stops=[], rows=[];
   let gaps=0, gapMax=0, jank=0, errs=0;
   const keyTotals={};
   for(const s of S.sessions){
@@ -416,13 +423,46 @@ function renderAggregate(){
       if(g.type==='jank') jank++;
       if(g.type==='error') errs++;
     }
-    if(!e){
-      const cs=chaptersOf(s);
-      const last=cs.length?cs[cs.length-1].chapter:(s.summary.chapter||1);
-      stops.push(last);
-    }
+    const cs=chaptersOf(s);
+    const last=cs.length?cs[cs.length-1].chapter:(s.summary.chapter||1);
+    if(!e) stops.push(last);
+    rows.push({name:s.meta.tester||s.id, shown:d.shown, ending:e, stop:e?'':last, issues:gapsOf(s).length});
     for(const row of keyCounts(s)) keyTotals[row.k]=(keyTotals[row.k]||0)+row.n;
   }
+  return {n,ends,durs,dursGame,byChapter,stops,rows,gaps,gapMax,jank,errs,keyTotals};
+}
+// A compact summary someone can paste back into a chat: the numbers that
+// decide whether the slice is ready, not the whole event log.
+function markdownAggregate(){
+  const a=aggregateStats();
+  const L=[];
+  L.push('## 试玩汇总 · '+a.n+' 份');
+  L.push('');
+  L.push('- 到结局：'+((a.ends.help||0)+(a.ends.film||0)+(a.ends.bad||0))+' / '+a.n
+    +'（help '+((a.ends.help||0))+' · film '+((a.ends.film||0))+' · bad '+((a.ends.bad||0))+'）');
+  L.push('- 时长：中位 '+clock(med(a.durs)||0)+'（'+clock(quant(a.durs,0)||0)+' – '+clock(quant(a.durs,1)||0)+'）');
+  if(a.stops.length) L.push('- 中途停下：'+a.stops.length+' 份，停在 '+a.stops.map(x=>'第 '+x+' 遍').join(' / '));
+  L.push('- 停顿 / 卡顿：'+(a.gaps+a.jank)+' 次，最长一次 '+dur(a.gapMax)+(a.errs?'，报错 '+a.errs+' 次':''));
+  L.push('');
+  L.push('| 记录 | 时长 | 结局 | 停在第几遍 | 停顿 / 卡顿 |');
+  L.push('| --- | --- | --- | --- | --- |');
+  for(const r of a.rows){
+    L.push('| '+r.name+' | '+dur(r.shown)+' | '+(r.ending||'未到结局')+' | '+(r.stop||'—')+' | '+r.issues+' |');
+  }
+  L.push('');
+  L.push('| 章节 | 中位 | 范围 | 样本 |');
+  L.push('| --- | --- | --- | --- |');
+  for(const k of [1,2,3,4,5]){
+    const list=a.byChapter[k];
+    L.push('| '+CHAP_NAME[k]+' | '+(med(list)!==null?dur(med(list)):'—')+' | '
+      +(list.length?dur(quant(list,0))+' – '+dur(quant(list,1)):'—')+' | '+list.length+' |');
+  }
+  return L.join('\n');
+}
+function renderAggregate(){
+  const box=el('div','agg');
+  const st=aggregateStats();
+  const {n,ends,durs,byChapter,stops,gaps,gapMax,jank,errs,keyTotals}=st;
   const head=el('div','card');
   head.innerHTML='<div class="k">全部记录</div><div class="v">'+n+' 份 · '+(
     (ends.help||0)+(ends.film||0)+(ends.bad||0))+' 份到结局 · '+stops.length+' 份中途停下</div>'+
@@ -454,11 +494,10 @@ function renderAggregate(){
   const rows=el('table','aggTable');
   rows.innerHTML='<thead><tr><th>章节</th><th>中位</th><th>范围</th><th>样本</th></tr></thead>';
   const tb=el('tbody');
-  const names={1:'第一遍 · 供桌',2:'第二遍 · 找她',3:'第三遍 · 拍异常',4:'第四遍 · 躲她',5:'最后一遍 / 走廊 / 暗房'};
   for(const k of [1,2,3,4,5]){
     const list=byChapter[k];
     const tr=el('tr');
-    tr.innerHTML='<td>'+names[k]+'</td><td>'+(
+    tr.innerHTML='<td>'+CHAP_NAME[k]+'</td><td>'+(
       med(list)!==null?dur(med(list)):'—')+'</td><td>'+(
       list.length?dur(quant(list,0))+' – '+dur(quant(list,1)):'—')+'</td><td>'+list.length+'</td>';
     tb.appendChild(tr);
@@ -481,6 +520,16 @@ function renderAggregate(){
   }
   cmp.appendChild(cb);
   box.appendChild(cmp);
+
+  const bar=el('div','ctl');
+  const mk=(label,fn)=>{ const b=el('button','act',label); b.onclick=fn; bar.appendChild(b); };
+  mk('复制汇总 Markdown',()=>{
+    navigator.clipboard.writeText(markdownAggregate())
+      .then(()=>toast('已复制汇总，粘给我就行'),()=>toast('复制失败，用下载'));
+  });
+  mk('下载汇总 Markdown',()=>save('ji-summary_'+n+'.md',markdownAggregate(),'text/markdown'));
+  box.appendChild(bar);
+  box.appendChild(el('div','empty','汇总只含数字与结论；单份的时间线、按键、问题清单仍在各自会话页里。'));
   return box;
 }
 function renderHead(s){
@@ -763,7 +812,7 @@ function toast(msg){
   clearTimeout(toastT);
   toastT=setTimeout(()=>{ t.style.display='none'; },4200);
 }
-window.__jiReport={ sessions:S.sessions, add:addSession, render, markdownOf, csvOf };
+window.__jiReport={ sessions:S.sessions, add:addSession, render, markdownOf, csvOf, markdownAggregate, aggregateStats };
 })();
 </script>
 </body>
