@@ -25,6 +25,22 @@ camLowCtx.imageSmoothingEnabled=false;
 const stage=document.getElementById('stage');
 const fadeEl=document.getElementById('fade');
 
+// ---------- HUD scale ----------
+// The pixel canvas is upscaled to the stage, so on a 1080p or 1440p display the
+// artwork grows while fixed-px HUD type does not: subtitles end up looking like
+// footnotes on a cinema screen. --u tracks the stage height against the 720p
+// reference (577 px tall), capped so a small window keeps today's sizes.
+const UI_REF_H=577, UI_MAX=2.25;
+function syncUiScale(){
+  const h=stage.getBoundingClientRect().height||UI_REF_H;
+  const u=Math.max(1,Math.min(UI_MAX,h/UI_REF_H));
+  document.documentElement.style.setProperty('--u',u.toFixed(3));
+}
+syncUiScale();
+if (window.ResizeObserver) new ResizeObserver(syncUiScale).observe(stage);
+else window.addEventListener('resize',syncUiScale);
+window.addEventListener('orientationchange',syncUiScale);
+
 // ---------- first-person DV footage layer ----------
 // The video is a local, muted, looping file. It is drawn as its own layer
 // underneath the 640x480 OSD canvas; the CRT shader stays attached to the
@@ -254,9 +270,11 @@ const state={
   ritual:{incense:2,bowl:1,thread:0,active:false,seen:false,done:false,loop:0,reviews:0,eyeSaid:false,inspected:{incense:false,bowl:false,thread:false},camSeen:{incense:false,bowl:false,thread:false}},
   reconOffset:0.08, reconAligned:false, reconEver:false, reconDragging:false, reconDragX:0, reconDragStart:0, reviewQuiz:{step:0,locked:false,wrong:0},
   glitch:0, glitchAt:0, time:0, last:0,
-  muted:false, paused:false, flashSafe:false, silent:false, scareUntil:0, scareAt:0, caseOpen:false, scanStart:0, scanT:0, scanDone:false, scanRisked:false, scanTarget:null, battery:100, lastBatteryAt:0, photos:{incense:false,bowl:false,thread:false}, photoScarePending:false, photoFlashUntil:0, photoRevealUntil:0, photoRevealTarget:null, chapter:1, scene:'room', hunt:null, hide:null, anomalies:{incense:false,bowl:false,thread:false}, finalPhoto:false, phoneDone:false, corr:{depth:0,answered:false,ringAt:0}, oldWomanGone:false, darkChapter:false, runStart:0, runEnd:0, chapterStartedAt:0, chapterTimes:[], inputLock:false, runId:0, transition:false, closeupUntil:0, lookFrame:0, lookStepAt:0, reviewCount:0, blinkSaid:false
+  muted:false, paused:false, flashSafe:false, silent:false, scareUntil:0, scareAt:0, caseOpen:false, scanStart:0, scanT:0, scanDone:false, scanRisked:false, scanTarget:null, battery:100, lastBatteryAt:0, photos:{incense:false,bowl:false,thread:false}, photoScarePending:false, photoFlashUntil:0, photoRevealUntil:0, photoRevealTarget:null, chapter:1, scene:'room', hunt:null, hide:null, anomalies:{incense:false,bowl:false,thread:false}, ch3FrameGate:false, ch3FrameOk:false, finalPhoto:false, phoneDone:false, corr:{depth:0,answered:false,ringAt:0,portrait:false,threadSeen:false}, oldWomanGone:false, darkChapter:false, runStart:0, runEnd:0, chapterStartedAt:0, chapterTimes:[], inputLock:false, runId:0, transition:false, closeupUntil:0, lookFrame:0, lookStepAt:0, reviewCount:0, blinkSaid:false
 };
 const keys={left:false,right:false,up:false,down:false};
+// Simulated-player / fuzz mode: logic runs, render + audio + DOM HUD are skipped.
+let FUZZ_ACTIVE=false;
 const scheduledJobs=[];
 let jobSeq=0;
 function later(fn,ms){
@@ -304,6 +322,7 @@ function initAudio(){
   }catch(e){}
 }
 function ensureAudio(){
+  if (FUZZ_ACTIVE) return;
   if (!actx) initAudio();
   if (actx && actx.state==='suspended') actx.resume();
 }
@@ -375,7 +394,17 @@ const AUDIO_FILES={
   voiceHand:'voice_hand.mp3',
   voiceWhat:'voice_what.mp3',
   voiceTurn:'voice_turn.mp3',
-  voiceOpen:'voice_open.mp3'
+  voiceOpen:'voice_open.mp3',
+  shutter:'shutter.mp3',
+  roomShift:'room_shift.mp3',
+  huntEmpty:'hunt_empty.mp3',
+  scanPing:'scan_ping.mp3',
+  phoneRing:'phone_ring.mp3',
+  voicePhone:'voice_phone.mp3',
+  ritualOk:'ritual_ok.mp3',
+  anomalySnap:'anomaly_snap.mp3',
+  hideFail:'hide_fail.mp3',
+  hideLure:'hide_lure.mp3'
 };
 const AMBIENCE_LAYERS=[
   {key:'ambience',volume:0.16},
@@ -389,7 +418,9 @@ const VOICE_LINES=[
   {text:'过来，让我看看你',key:'voiceOpen'},
   {text:'手给我看看',key:'voiceHand'},
   {text:'你在拍什么',key:'voiceWhat'},
-  {text:'她总是这样回头',key:'voiceTurn'}
+  {text:'她总是这样回头',key:'voiceTurn'},
+  {text:'别让她抬手',key:'voicePhone'},
+  {text:'你终于接电话了',key:'voicePhone'}
 ];
 const BED_VOLUME=0.16;
 const MEDIA_CUES={
@@ -467,6 +498,7 @@ function armCueFade(el){
   else el.addEventListener('loadedmetadata',arm,{once:true});
 }
 function playMedia(key,volume,fadeIn=0.15){
+  if (FUZZ_ACTIVE) return null;
   const el=getMedia(key);
   if (!el) return null;
   clearTimeout(el._endTimer);
@@ -494,6 +526,7 @@ function getBed(){
   return bedEl;
 }
 function startAmbience(){
+  if (FUZZ_ACTIVE) return;
   bedActive=true;
   for (const L of AMBIENCE_LAYERS){
     const el=getMedia(L.key);
@@ -1368,8 +1401,12 @@ function drawWallClock(ctx,t){
 
 function drawHangingClothes(ctx,t){
   // padded coat on a peg (north-west wall)
+  let coatShift=0;
+  if (state.chapter===2 && state.hunt && state.hunt.layout){
+    coatShift=state.hunt.layout===1?6:(state.hunt.layout===2?-5:0);
+  }
   const c=wallNWPt(5.85,35);
-  const cx=c[0], cy=c[1];
+  const cx=c[0]+coatShift, cy=c[1];
   r(ctx,cx-1,cy-2,2,2,PAL.woodPale);
   pxPoly(ctx,[[cx-9,cy+4],[cx-6,cy],[cx+6,cy],[cx+9,cy+4],[cx+7,cy+31],[cx-7,cy+31]],PAL.wallSoot);
   pxPoly(ctx,[[cx-6,cy+5],[cx-4,cy+2],[cx+4,cy+2],[cx+6,cy+5],[cx+5,cy+28],[cx-5,cy+28]],'#242821');
@@ -1984,6 +2021,10 @@ function drawIsoTable(ctx,t,anim=true){
 
 function drawTableFood(ctx,t,anim=true){
   const LIFT=23;
+  let chopShift=0;
+  if (state.chapter===2 && state.hunt && state.hunt.layout){
+    chopShift=state.hunt.layout===1?7:(state.hunt.layout===2?-6:0);
+  }
   const at=(wx,wy)=>iso(wx,wy);
   // a dry ring on the tabletop, left of center: the bowl used to sit there
   const wr=at(6.55,4.45); const wrx=wr.x-8, wry=wr.y-LIFT-1;
@@ -2003,8 +2044,8 @@ function drawTableFood(ctx,t,anim=true){
   r(ctx,x+4,y-2,1,1,PAL.boneDim);
   r(ctx,x-1,y-4,2,1,'#c97a36'); // egg yolk / pickle
   r(ctx,x-2,y-4,1,1,'#e6a34e');
-  pxLine(ctx,x-7,y-1,x-10,y-5,PAL.woodPale); // chopstick
-  pxLine(ctx,x-7,y,x-11,y-3,PAL.woodLit);
+  pxLine(ctx,x-7+chopShift,y-1,x-10+chopShift,y-5,PAL.woodPale); // chopstick
+  pxLine(ctx,x-7+chopShift,y,x-11+chopShift,y-3,PAL.woodLit);
   // plate with fish
   p=at(7.62,4.95); x=p.x; y=p.y-LIFT;
   dithEllipse(ctx,x+1,y+1,10,3,PAL.black,7,0.30);
@@ -3273,11 +3314,22 @@ function renderCameraVideoOSD(ctx,t,opts={}){
 //  UI / FLOW
 // =========================================================
 let subtitleTimer=null;
+// Mirror of what is actually on screen, so a headless bot can only "see" the
+// same text a player sees. Populated only while FUZZ_ACTIVE is on.
+const FUZZ_UI={prompt:'',promptDur:0,promptAt:0,say:'',sayDur:0,sayAt:0,
+  kicker:'',name:'',obj:'',count:''};
+// Chinese read-aloud is ~4.5 chars/second. Lines that carry a clue get at least
+// that much time, so a slow reader never loses the instruction mid-sentence.
+function readingTime(text,dur){
+  const t=(text||'').replace(/\s+/g,'').length;
+  return Math.max(dur,Math.min(9000,700+t*230));
+}
 function say(text,dur=3600){
+  if (FUZZ_ACTIVE){ FUZZ_UI.say=text; FUZZ_UI.sayDur=dur; FUZZ_UI.sayAt=state.time; return; }
   subtitleEl.textContent=text;
   subtitleEl.classList.remove('hidden');
   cancelLater(subtitleTimer);
-  subtitleTimer=later(()=>subtitleEl.classList.add('hidden'),dur);
+  subtitleTimer=later(()=>subtitleEl.classList.add('hidden'),readingTime(text,dur));
   if (!state.muted){
     for (const v of VOICE_LINES){
       if (text.includes(v.text)){ playMedia(v.key,0.88,0.08); break; }
@@ -3286,6 +3338,7 @@ function say(text,dur=3600){
 }
 let promptTimer=null;
 function prompt(text,dur=0){
+  if (FUZZ_ACTIVE){ FUZZ_UI.prompt=text||''; FUZZ_UI.promptDur=dur; FUZZ_UI.promptAt=state.time; return; }
   if (!text){ cancelLater(promptTimer); promptTimer=null; promptEl.classList.add('hidden'); return; }
   promptEl.textContent=text;
   promptEl.classList.remove('hidden');
@@ -3306,14 +3359,36 @@ const HIDE_SPOTS=[
 ];
 const REVIEW_QUIZ=[
   {q:'这盘带是哪一年？',opts:['1998','1999','2003'],ans:1},
-  {q:'23:06 缺了哪一帧？',opts:['空椅子','门','白胶布的手'],ans:2}
+  {q:'23:06 缺了哪一帧？',opts:['空椅子','门','白胶布的手'],ans:2},
+  // Paid off by the corridor nameplate, so it can only be answered by someone
+  // who actually looked at the door instead of walking straight to the phone.
+  {q:'走廊尽头的门牌上，是谁的名字？',opts:['谢雨洁','徐英子','曾阿婆'],ans:1}
 ];
 const THREAD_LABEL=['低','中','高'];
 function currentTake(){
   const r=state.ritual;
   return RITUAL_TAKES.findIndex(t=>t.incense===r.incense&&t.bowl===r.bowl&&t.thread===r.thread);
 }
+function ritualScansComplete(){
+  const c=state.ritual.camSeen;
+  return !!(c && c.incense && c.bowl && c.thread);
+}
+function ritualReadyForCommit(){
+  return ritualScansComplete() && photosAll();
+}
+function huntViewHint(pos){
+  return ['左侧有衣角','低处有人影','右侧有袖口'][pos]||'有什么在动';
+}
+function shiftHuntLayout(){
+  if (!state.hunt) return;
+  state.hunt.layout=((state.hunt.layout||0)+1)%3;
+  if (!state.silent){
+    playMedia('roomShift',0.42,0.04);
+    glitchNow();
+  }
+}
 function updateRitualHUD(){
+  if (FUZZ_ACTIVE) return;
   if (!ritualEl) return;
   const r=state.ritual;
   ritualEl.classList.toggle('hidden',!r.active);
@@ -3342,6 +3417,7 @@ function updateRunText(){
   if (endRunEl) endRunEl.textContent='用时 '+runClock(elapsed);
 }
 function updateBatteryHUD(){
+  if (FUZZ_ACTIVE) return;
   if (!ritualBatteryEl) return;
   const pct=Math.max(0,Math.min(100,Math.round(state.battery)));
   ritualBatteryEl.textContent='DV 电 '+pct+'%';
@@ -3350,40 +3426,85 @@ function updateBatteryHUD(){
 function updateChapterHUD(){
   if (!chapterEl) return;
   const on=state.chapter>=2 && state.chapter<=5 && !state.ended;
-  chapterEl.classList.toggle('hidden',!on);
-  if (!on) return;
-  if (state.chapter===2){
-    chapterKickerEl.textContent='第 2 遍';
-    chapterNameEl.textContent='找她';
-    chapterObjEl.innerHTML='按 <b>F</b> 用取景器找她。<br/>走到她所在的位置，按 <b>E</b>。';
-    chapterCountEl.textContent='找到 '+(state.hunt?state.hunt.count:0)+' / 3';
-  } else if (state.chapter===3){
-    chapterKickerEl.textContent='第 3 遍';
-    chapterNameEl.textContent='拍异常';
-    chapterObjEl.innerHTML='房间被改过。走到香炉/水碗/门框旁，按 <b>F</b> 看取景器，按 <b>L</b> 拍下不对的地方。';
-    chapterCountEl.textContent='拍到 '+(state.hunt?state.hunt.count:0)+' / 3　·　DV 电 '+Math.round(state.battery)+'%';
-  } else if (state.chapter===4){
-    chapterKickerEl.textContent='第 4 遍';
-    chapterNameEl.textContent='躲她';
-    chapterObjEl.innerHTML='按 <b>F</b> 看她正看着哪里；<br/>躲到另外两个地方之一，按 <b>E</b>。';
-    const h=state.hide;
-    chapterCountEl.textContent=h?('第 '+Math.min(3,h.round+1)+' / 3 轮　·　'+Math.max(0,h.remaining).toFixed(1)+'s'):'';
-  } else {
-    chapterKickerEl.textContent='最后一遍';
-    if (!state.finalPhoto){
-      chapterNameEl.textContent='拍她';
-      chapterObjEl.innerHTML='走近她，举起 <b>F</b>，按 <b>L</b> 拍下。';
-      chapterCountEl.textContent='照片：未拍　·　DV 电 '+Math.round(state.battery)+'%';
-    } else if (!state.phoneDone){
-      chapterNameEl.textContent='电话';
-      chapterObjEl.innerHTML='门后的电话在响。<br/>走到门口按 <b>E</b> 接电话。';
-      chapterCountEl.textContent='电话：未接';
+  let kicker='',name='',obj='',count='';
+  if (on){
+    if (state.chapter===2){
+      kicker='第 2 遍'; name='找她';
+      obj='按 <b>F</b> 看取景器里的局部线索。<br/>放下 DV，在房间里找到同一处，按 <b>E</b>。';
+      count='找到 '+(state.hunt?state.hunt.count:0)+' / 4';
+    } else if (state.chapter===3){
+      kicker='第 3 遍';
+      if (state.ch3FrameGate && !state.ch3FrameOk){
+        name='选帧';
+        obj='按 <b>R</b> 回看，<b>A / D</b> 停在 00:41:17 闭眼那一帧。';
+        count='回看 · 找闭眼帧';
+      } else {
+        name='拍异常';
+        obj='房间被改过。走到香炉/水碗/门框旁，按 <b>F</b> 看取景器，按 <b>L</b> 拍下不对的地方。';
+        count='拍到 '+(state.hunt?state.hunt.count:0)+' / 3　·　DV 电 '+Math.round(state.battery)+'%';
+      }
+    } else if (state.chapter===4){
+      kicker='第 4 遍'; name='躲她';
+      obj='按 <b>F</b> 看她正看着哪里；<br/>躲到另外两个地方之一，按 <b>E</b>。';
+      const h=state.hide;
+      count=h?('第 '+Math.min(4,h.round+1)+' / 4 轮　·　'+Math.max(0,h.remaining).toFixed(1)+'s'):'';
     } else {
-      chapterNameEl.textContent='手';
-      chapterObjEl.innerHTML='她坐回椅子。<br/>按 <b>Q</b> 让她抬手。';
-      chapterCountEl.textContent='';
+      kicker='最后一遍';
+      if (!state.finalPhoto){
+        name='拍她'; obj='走近她，举起 <b>F</b>，按 <b>L</b> 拍下。';
+        count='照片：未拍　·　DV 电 '+Math.round(state.battery)+'%';
+      } else if (!state.phoneDone){
+        if (state.scene==='darkroom'){
+          const k=state.dark||{};
+          name='暗房';
+          const n=(k.seen?((k.seen.line?1:0)+(k.seen.bench?1:0)+(k.seen.wall?1:0)):0);
+          if (n<3){
+            obj='按住 <b>F</b> 在红灯下显影：洗印线、剪辑台、放大机。';
+            count='显影 '+n+' / 3　·　距离 '+Math.round((k.depth||0)*100)+'%';
+          } else if (k.open){
+            const off=(k.v||0)-(k.target||0);
+            const ok=Math.abs(off)<=0.03;
+            obj='按 <b>Q / E</b> 把断口对到红线上；按 <b>空格</b> 接带。';
+            count=ok?'接缝 已对齐　·　空格 接带'
+              :('接缝 偏移 '+(off>0?'+':'')+(off*100).toFixed(0)+'%');
+          } else if (!k.split){
+            obj='回剪辑台，按 <b>E</b> 接回剪掉的那 23 分钟。';
+            count='显影 3 / 3';
+          } else {
+            obj=k.print
+              ? '照片洗出来了。<br/>往回走到门口，按 <b>E</b> 推门。'
+              : '那 23 分钟接回去了。按 <b>L</b> 拍下这一格，<br/>再往回走到门口，按 <b>E</b> 推门。';
+            count=k.print?'照片：已拍':'照片：未拍';
+          }
+        } else if (state.scene==='corridor'){
+          const c=state.corr||{};
+          name=c.answered?'门':'门后';
+          obj=c.answered
+            ? '电话挂了。<b>W</b> 走到尽头，按 <b>E</b> 推开那扇门。'
+            : '<b>W</b> 前进。看到侧门、遗像、门牌时按住 <b>F</b> 看清；<br/>看清门牌后，走到尽头按 <b>E</b> 接电话。';
+          const seen=(c.roomSeen?1:0)+(c.facesSeen?1:0)+(c.nameSeen?1:0);
+          count=c.answered?'电话：已接':'看清 '+seen+' / 3　·　距离 '+Math.round((c.depth||0)*100)+'%';
+        } else {
+          name='电话'; obj='门后的电话在响。<br/>走到门口按 <b>E</b> 接电话。';
+          count='电话：未接';
+        }
+      } else {
+        name='手'; obj='她坐回椅子。<br/>按 <b>Q</b> 让她抬手。';
+        count='';
+      }
     }
   }
+  if (FUZZ_ACTIVE){
+    FUZZ_UI.kicker=kicker; FUZZ_UI.name=name; FUZZ_UI.count=count;
+    FUZZ_UI.obj=obj.replace(/<br\s*\/?>/g,' ').replace(/<[^>]+>/g,'');
+    return;
+  }
+  chapterEl.classList.toggle('hidden',!on);
+  if (!on) return;
+  chapterKickerEl.textContent=kicker;
+  chapterNameEl.textContent=name;
+  chapterObjEl.innerHTML=obj;
+  chapterCountEl.textContent=count;
 }
 function updateBattery(dt){
   if (!state.started || state.ended) return;
@@ -3417,14 +3538,16 @@ function renderCase(){
   } else if (r.loop===1){
     caseTapeEl.innerHTML='<div class="row unknown"><span>信号</span><span>损坏</span></div><div class="note">这一页不对。</div>';
   } else {
-    caseTapeEl.innerHTML='<div class="row"><span>乙</span><span>香三 · 水左 · 线高</span></div><div class="note">带子终于对上了。</div>';
+    caseTapeEl.innerHTML='<div class="row"><span>残页</span><span>水 · 靠左 · 其余未知</span></div><div class="note">带子只对上了一项。香和绳要看实物。</div>';
   }
-  const clueRow=(label,val,found)=>'<div class="row'+(found?'':' unknown')+'"><span>'+label+'</span><span>'+(found?val:'未检查')+'</span></div>';
+  const clueRow=(label,val,found)=>'<div class="row'+(found?'':' unknown')+'"><span>'+label+'</span><span>'+(found?val:'未显影')+'</span></div>';
   caseCluesEl.innerHTML=
-    clueRow('炉身孔数','3',r.inspected.incense)
-    +clueRow('桌面水痕','左',r.inspected.bowl)
-    +clueRow('门框绳痕','高',r.inspected.thread)
-    +(r.inspected.incense&&r.inspected.bowl&&r.inspected.thread?'<div class="note">实物不会说谎。</div>':'<div class="note">靠近实物，按 E 检查。</div>');
+    clueRow('炉身孔数','3',r.camSeen.incense)
+    +clueRow('桌面水痕','左',r.camSeen.bowl)
+    +clueRow('门框绳痕','高',r.camSeen.thread)
+    +(ritualReadyForCommit()?'<div class="note">实物不会说谎。用 E 摆成乙，供桌前空格起仪。</div>'
+      :ritualScansComplete()?'<div class="note">三处已显影。各拍一张（L），再起仪。</div>'
+      :'<div class="note">靠近香炉 / 水碗 / 门框，按住 F 显影。</div>');
   caseTakesEl.innerHTML=RITUAL_TAKES.map((t,i)=>
     '<div class="take'+(i===take?' now':'')+'"><b>'+t.id+'</b><span>香'+t.incense+' · '+BOWL_LABEL[t.bowl]+' · '+THREAD_LABEL[t.thread]+'</span></div>'
   ).join('');
@@ -3478,32 +3601,30 @@ function nearAltar(){ return Math.hypot(state.wx-7.05,state.wy-5.25)<2.2; }
 function cycleRitual(key){
   const r=state.ritual;
   if (!r.active || r.done) return;
-  const first=!r.inspected[key];
   r.inspected[key]=true;
-  let clue='';
   if (key==='incense'){
     r.incense=r.incense%3+1;
-    clue='炉身有三个孔。';
-    say((first?clue+'　':'')+'香炉：'+r.incense+' 炷。',first?3000:1900);
+    say('香炉：'+r.incense+' 炷。',1900);
   } else if (key==='bowl'){
     r.bowl=(r.bowl+1)%3;
-    clue='桌面左边有一圈旧水痕。';
-    say((first?clue+'　':'')+'水碗：'+BOWL_LABEL[r.bowl]+'。',first?3000:1900);
+    say('水碗：'+BOWL_LABEL[r.bowl]+'。',1900);
   } else if (key==='thread'){
     r.thread=(r.thread+1)%3;
-    clue='门框高处有一道旧绳痕。';
-    say((first?clue+'　':'')+'红绳：'+THREAD_LABEL[r.thread]+'。',first?3000:1900);
+    say('红绳：'+THREAD_LABEL[r.thread]+'。',1900);
   }
   sClick();
   updateRitualHUD();
-  prompt('空格 起仪　/　Tab 记录　/　E 继续调整',4600);
+  const scanHint=ritualReadyForCommit()?'空格 起仪　/　Tab 记录'
+    :ritualScansComplete()?'L 拍照三处　/　Tab 记录':'按住 F 显影三处　/　Tab 记录';
+  prompt(scanHint+'　/　E 继续调整',4600);
 }
 function completeRitual(){
   const r=state.ritual;
   if (r.done) return;
   r.done=true;
   updateRitualHUD();
-  playMedia('incense',0.26,0.08);
+  playMedia('ritualOk',0.38,0.06);
+  playMedia('incense',0.22,0.10);
   if (state.silent){
     say('老妇：……对了。手给我。',3800);
     prompt('Q 让她抬手　/　按住 F 举起 DV',5200);
@@ -3546,6 +3667,26 @@ function commitRitual(){
   const r=state.ritual;
   if (!r.active || r.done || state.ending || state.camera || state.review || state.caseOpen) return;
   if (!nearAltar()){ say('走到供桌前。',2200); return; }
+  if (!ritualScansComplete()){
+    const c=r.camSeen;
+    const miss=[];
+    if (!c.incense) miss.push('香炉');
+    if (!c.bowl) miss.push('水碗');
+    if (!c.thread) miss.push('门框');
+    say('起仪前，先在取景器里显影：'+miss.join('、')+'。',3600);
+    prompt('按住 F 显影　/　Tab 记录　/　R 看旧带',5200);
+    return;
+  }
+  if (!photosAll()){
+    const ph=state.photos;
+    const miss=[];
+    if (!ph.incense) miss.push('香炉');
+    if (!ph.bowl) miss.push('水碗');
+    if (!ph.thread) miss.push('门框');
+    say('起仪前，三处各拍一张：'+miss.join('、')+'。',3600);
+    prompt('按住 F　·　L 快门　/　Tab 记录',5200);
+    return;
+  }
   const take=currentTake();
   if (take<0){ say('先把香、水、线摆成完整的一遍。',3000); prompt('F 取景器　/　E 调整供桌　/　Tab 记录　/　R 看旧带',5200); return; }
   if (take===RITUAL_TRUE){ completeRitual(); }
@@ -3656,8 +3797,13 @@ function setCamera(on){
     if (state.handRaised && state.uncannyDone && !state.mismatch){ startMismatch(); return; }
     if (state.choice && state.mismatch){ startSecondTake(); return; }
     if (state.camera || state.takes>=1) return;
-    if (!state.talked && !nearWoman()){ say('先走近她。',2200); return; }
+    // The proximity/talk gate only teaches the first raise. After that the
+    // player must be able to use the DV at the altar props (ch1/ch3), which are
+    // far from her chair — gating those made the run unwinnable if the intro
+    // dialogue was skipped.
+    if (!state.firstCameraDone && !state.talked && !nearWoman()){ say('先走近她。',2200); return; }
     state.camera=true;
+    if (!state.firstCameraDone){ state.firstCameraDone=true; }
     if (nearWoman() && !state.firstCameraDone){ state.closeupUntil=performance.now()+1500; glitchNow(); }
     camera.classList.add('on');
     dvBtn.classList.add('active');
@@ -3684,12 +3830,16 @@ function setCamera(on){
       modeEl.textContent=state.chapter===2?'取景器 · 找她':'取景器 · 拍她';
       subjectEl.textContent='拍摄对象：她';
       filmerEl.classList.add('show');
-      prompt('松开放下　·　'+(state.chapter===2?'E 靠近她':'L 快门'),5600);
-      say('取景器里，她在'+HIDE_SPOTS[state.hunt.pos].label+'。',3000);
+      prompt('松开放下　·　'+(state.chapter===2?'对照房间找位置，E 确认':'L 快门'),5600);
+      if (state.chapter===2){
+        say('取景器：'+huntViewHint(state.hunt.pos)+'。',3200);
+      } else {
+        say('取景器里，她在'+HIDE_SPOTS[state.hunt.pos].label+'。',3000);
+      }
     }
     if (anomalyScanMode()){
       state.scanTarget=scanTarget();
-      state.scanStart=performance.now(); state.scanT=0; state.scanDone=false; state.scanRisked=false;
+      state.scanStart=scanNow(); state.scanT=0; state.scanDone=false; state.scanRisked=false;
       modeEl.textContent='取景器 · 看错';
       subjectEl.textContent='拍摄对象：不对的地方';
       filmerEl.classList.add('show');
@@ -3706,7 +3856,7 @@ function setCamera(on){
     }
     if (ritualScanMode()){
       state.scanTarget=scanTarget();
-      state.scanStart=performance.now(); state.scanT=0; state.scanRisked=false;
+      state.scanStart=scanNow(); state.scanT=0; state.scanRisked=false;
       state.scanDone=!!(state.scanTarget && state.ritual.camSeen[state.scanTarget]);
       const nm={incense:'香炉',bowl:'水碗',thread:'门框'}[state.scanTarget]||'未对准';
       modeEl.textContent='取景器 · '+nm;
@@ -3836,11 +3986,27 @@ function startSecondTake(){
   later(()=>{ if (!state.ending) choose('film'); },3600);
 }
 function canReview(){
-  return state.scene==='room' && state.started && !state.ending && (state.uncannyDone || state.mismatch);
+  return state.scene==='room' && state.started && !state.ending
+    && (state.uncannyDone || state.mismatch || state.ch3FrameGate);
+}
+function stepLookFrame(dir){
+  if (!dir) return;
+  state.lookFrame=Math.max(0,Math.min(7,(state.lookFrame||0)+dir));
+  playMedia('clock',0.18,0.01);
+  renderTimeline();
+  if (state.lookFrame===5 && state.ch3FrameGate && !state.ch3FrameOk){
+    state.ch3FrameOk=true;
+    state.blinkSaid=true;
+    playMedia('scanPing',0.28,0.03);
+    say('……闭眼了。带子和房间对上了。',3600);
+    prompt('R 退出回看',4800);
+  } else if (state.lookFrame===5 && (state.reviewCount||0)>=2 && !state.blinkSaid){
+    state.blinkSaid=true;
+    say('……她刚才，是不是闭眼了？',3400);
+  }
 }
 function reviewTimecode(){
-  switch(state.reviewKind){
-    case 'normal': return '00:18:06';
+  switch(state.reviewKind){    case 'normal': return '00:18:06';
     case 'look': return '00:41:'+String(12+(state.lookFrame||0)).padStart(2,'0');
     case 'mismatch': return '00:42:30';
     case 'gap': return '00:18:07—00:41:11';
@@ -3848,6 +4014,7 @@ function reviewTimecode(){
   }
 }
 function renderTimeline(){
+  if (FUZZ_ACTIVE) return;
   tlHead.style.left=(Math.max(0,Math.min(1,state.reviewPos))*100)+'%';
   tlTime.textContent=reviewTimecode();
   tlMode.textContent=state.reviewKind==='gap'
@@ -3862,7 +4029,7 @@ function renderTimeline(){
 }
 function setReconOffset(v){
   if (state.reviewKind==='gap' && state.reviewQuiz && !state.reviewQuiz.locked){
-    say('先校验带子：这盘是哪一年、23:06 缺了哪一帧。',3200);
+    say('先校验带子：哪一年、缺了哪一帧、门牌上是谁。',3400);
     return;
   }
   state.reconOffset=Math.max(-0.18,Math.min(0.18,v));
@@ -3888,7 +4055,7 @@ function reviewPick(n){
     state.reviewQuiz.step++;
     if (state.reviewQuiz.step>=REVIEW_QUIZ.length){
       state.reviewQuiz.locked=true;
-      say('磁带 1999，缺的是白胶布的手。补帧。',3800);
+      say('磁带 1999，缺的是白胶布的手。门牌上的名字是徐英子。补帧。',4200);
       prompt('拖动重建条对齐　/　Q / E 微调　/　P 分屏',5200);
     } else {
       const next=REVIEW_QUIZ[state.reviewQuiz.step];
@@ -3969,7 +4136,17 @@ function startReview(){
   // Review is pixel-tape playback; it does not use the video layer, but it
   // still needs the CRT shader over the camera canvas.
   later(startRetroDisplay,0);
-  say('A / D 倒带。看看带子里有什么。',3600);
+  if (state.ch3FrameGate){
+    state.reviewPos=0.65;
+    state.reviewKind='look';
+    state.lookFrame=0;
+    state.blinkSaid=false;
+    renderTimeline();
+    say('你停在 '+reviewTimecode()+'。她那一下，是不是闭眼了？',4000);
+    prompt('A / D 逐帧　/　R 退出',5200);
+  } else {
+    say('A / D 倒带。看看带子里有什么。',3600);
+  }
 }
 function exitReview(){
   if (!state.review) return;
@@ -3984,6 +4161,17 @@ function exitReview(){
   modeEl.textContent='徐英子的记忆';
   camMeta.classList.add('hidden');
   reviewBtn.classList.remove('active');
+  if (state.ch3FrameGate){
+    if (state.ch3FrameOk){
+      state.ch3FrameGate=false;
+      say('带子对上了。她站起来了。',3200);
+      later(()=>{ if (!state.ending) startChapter(4); },900);
+    } else {
+      prompt('R 回看　/　A D 停在闭眼那一帧',4800);
+      say('还没停在闭眼那一帧。',2800);
+    }
+    return;
+  }
   prompt('E 走向她　/　按住 F 继续拍　/　R 回看');
   say('你按下暂停。',2200);
   if (state.ritual.active && !state.ritual.done && !state.ending){
@@ -4481,17 +4669,19 @@ function startChapter(n){
     state.battery=100; state.photoScarePending=false;
     state.ritual.active=false; updateRitualHUD();
     if (n===2){
-      state.hunt={mode:'find',pos:Math.floor(Math.random()*HIDE_SPOTS.length),count:0,seen:false};
+      state.hunt={mode:'find',pos:Math.floor(Math.random()*HIDE_SPOTS.length),count:0,seen:false,layout:0};
       state.ritual.reviews=Math.max(state.ritual.reviews||0,2);
     } else if (n===3){
       state.hunt={mode:'anomaly',count:0,seen:false};
       state.anomalies={incense:false,bowl:false,thread:false};
+      state.ch3FrameGate=false; state.ch3FrameOk=false;
       state.ritual.incense=1; state.ritual.bowl=2; state.ritual.thread=0;
       state.ritual.active=false; state.ritual.done=true;
       updateRitualHUD();
     } else if (n===4){
       state.hunt=null;
-      state.hide={round:0,facing:Math.floor(Math.random()*HIDE_SPOTS.length),remaining:12,active:true,lastHud:-1,lastSpot:-1};
+      state.hide={round:0,facing:Math.floor(Math.random()*HIDE_SPOTS.length),remaining:12,active:true,lastHud:-1,lastSpot:-1,lureAt:performance.now()+4500};
+      state.ch3FrameGate=false; state.ch3FrameOk=false;
       state.ritual.done=true;
       state.oldWomanGone=true; state.darkChapter=true;
       state.choice=false;
@@ -4529,7 +4719,8 @@ function startCorridor(){
   hardCloseCamera(); closeCase();
   const apply=()=>{
     state.scene='corridor';
-    state.corr={depth:0,answered:false,ringAt:0};
+    state.corr={depth:0,answered:false,ringAt:0,portrait:false,threadSeen:false,
+      lookOn:false,roomSeen:false,facesSeen:false,nameSeen:false};
     state.choice=false;
     state.camera=false;
     camera.classList.remove('on'); dvBtn.classList.remove('active');
@@ -4547,41 +4738,124 @@ function startCorridor(){
   state.transition=true; fadeEl.classList.add('on');
   later(apply,500);
 }
+// The corridor has its own camera: the room DV is closed here, so F becomes a
+// slow look instead of the shutter rig. Three things are only legible through
+// it — the side room, the missing face, the name on the far door — and the
+// phone will not answer until the name has been read.
+function corridorLookOn(){
+  const c=state.corr;
+  if (!c || c.lookOn || state.ended || state.transition || state.paused) return;
+  c.lookOn=true;
+  const d=c.depth||0;
+  playMedia('scanPing',0.22,0.02);
+  if (d>0.14 && d<0.38 && !c.roomSeen){
+    c.roomSeen=true;
+    playMedia('roomShift',0.34,0.06);
+    glitchNow();
+    say('侧门开着一条缝。里面是同一把椅子，坐着另一个你。',4200);
+    prompt('松开 F 放下　·　W 前进　·　E 查看',5200);
+    return;
+  }
+  if (d>0.46 && d<0.74 && !c.facesSeen){
+    c.facesSeen=true;
+    playMedia('oldBreath',0.4,0.06);
+    say('五张遗像，只有四张有脸。空的那张，别着白胶布。',4200);
+    prompt('松开 F 放下　·　W 前进　·　E 查看',5200);
+    return;
+  }
+  if (d>=0.76 && !c.nameSeen){
+    c.nameSeen=true;
+    playMedia('clock',0.2,0.02);
+    say('门牌上是两个字：徐英子。',3600);
+    prompt('松开 F　·　E 接电话',5200);
+    return;
+  }
+  say(d<0.74?'取景器里只有灰和门缝。':'门牌已经看清了。',2200);
+  prompt('松开 F 放下 DV　·　W 前进　·　E 查看',3200);
+}
+function corridorLookOff(){
+  if (state.corr) state.corr.lookOn=false;
+}
 function corridorInteract(){
   if (state.scene!=='corridor') return false;
-  if (state.corr.depth<0.78){ say('再往前走。电话在尽头。',2600); prompt('W 前进　/　E 接电话',3600); return true; }
+  const d=state.corr.depth||0;
+  if (d<0.78){
+    if (d>=0.28 && d<0.58 && !state.corr.portrait){
+      state.corr.portrait=true;
+      playMedia('oldBreath',0.32,0.04);
+      say('相框里没有人。只有一块白胶布。',3400);
+      prompt('W 前进　/　E 继续',4200);
+      return true;
+    }
+    if (d>=0.52 && !state.corr.threadSeen){
+      state.corr.threadSeen=true;
+      say('地上的红绳，一直牵到门后。',3000);
+      prompt('W 前进　/　E 接电话',4200);
+      return true;
+    }
+    say('再往前走。电话在尽头。',2600);
+    prompt('W 前进　/　E 查看',3600);
+    return true;
+  }
+  if (!state.corr.nameSeen){
+    say('门牌落了灰。按住 F，看清这是谁的门。',3400);
+    prompt('按住 F 看清门牌',4200);
+    return true;
+  }
+  if (state.corr.answered && state.corr.doorOpen){ startDarkroom(); return true; }
+  if (state.corr.answered){ say('电话刚挂上。等门开。',2200); return true; }
   answerPhone();
   return true;
 }
 function answerPhone(){
   if (state.scene!=='corridor' || state.corr.answered) return;
   state.corr.answered=true;
-  playMedia('voiceHand',0.8,0.05);
+  playMedia('voicePhone',0.82,0.06);
   say('电话里：你终于接电话了。别让她抬手。',4200);
   prompt('');
-  const back=()=>{
-    if (state.ending) return;
-    state.scene='room'; state.phoneDone=true;
-    state.chapter=5; state.oldWomanGone=false; state.finalPhoto=true;
-    state.choice=true; state.darkChapter=false;
-    roleName.textContent='谢雨洁（重建）'; modeEl.textContent='徐英子的记忆';
-    updateChapterHUD();
-    fadeEl.classList.remove('on');
-    say('电话挂了。她坐回椅子。',3200);
-    prompt('Q 让她抬手　/　按住 F 看取景器',5200);
+  // The call opens a door the corridor never had. Act 2 is behind it.
+  const open=()=>{
+    if (state.ending || state.scene!=='corridor') return;
+    playMedia('door',0.38,0.06);
+    state.corr.doorOpen=true;
+    say('挂上电话，尽头的门自己开了一条缝。',3400);
+    prompt('W 走到门口　/　E 推门进去',4800);
   };
-  if (state.silent){ back(); return; }
-  later(back,2200);
+  if (state.silent){ open(); return; }
+  later(open,2200);
 }
 function updateCorridor(dt){
   if (state.paused || state.transition) return;
-  if (keys.up) state.corr.depth=Math.min(1,state.corr.depth+dt*0.26);
-  if (keys.down) state.corr.depth=Math.max(0,state.corr.depth-dt*0.2);
+  const look=!!state.corr.lookOn;
+  if (!look){
+    if (keys.up) state.corr.depth=Math.min(1,state.corr.depth+dt*0.19);
+    if (keys.down) state.corr.depth=Math.max(0,state.corr.depth-dt*0.2);
+    // Nudge the player toward each thing that only the viewfinder can resolve,
+    // once per beat, so the hall is not a guessing game at walking speed.
+    const c=state.corr, d=c.depth||0;
+    const beat=(!c.roomSeen && d>=0.12 && d<=0.40 && c.hint!=='room')?'room'
+      :(!c.facesSeen && d>=0.44 && d<=0.72 && c.hint!=='faces')?'faces'
+      :(!c.nameSeen && d>=0.74 && c.hint!=='name')?'name':null;
+    if (beat){
+      c.hint=beat;
+      if (beat==='room'){
+        playMedia('roomShift',0.3,0.05);
+        say('左边的门开着一条缝。按住 F 看看里面。',3200);
+        prompt('按住 F 看门缝　/　W 前进',4200);
+      } else if (beat==='faces'){
+        playMedia('oldBreath',0.3,0.05);
+        say('墙上五张遗像。有一张，看不清脸。',3200);
+        prompt('按住 F 看遗像　/　W 前进',4200);
+      } else {
+        say('尽头那扇门上，挂着门牌。',3000);
+        prompt('按住 F 看清门牌',4200);
+      }
+    }
+  }
   const now=performance.now();
   if (!state.corr.answered && now>(state.corr.ringAt||0)){
     state.corr.ringAt=now+1600;
-    playMedia('clock',0.30,0.02);
-    if (actx){ tone(880,.07,'square',.025); later(()=>{ if(state.scene==='corridor'&&!state.corr.answered) tone(1040,.07,'square',.02); },120); }
+    playMedia('phoneRing',0.48,0.04);
   }
   if (state.chapter===5) updateChapterHUD();
 }
@@ -4591,10 +4865,10 @@ function drawCorridor(ctx,t){
   const depth=state.corr.depth||0;
   ctx.fillStyle='#070806'; ctx.fillRect(0,0,W,H);
   // ceiling
-  pxPoly(ctx,[[0,0],[W,0],[vx+58,vy-18],[vx-58,vy-18]],'#0b0c09');
+  pxPoly(ctx,[[0,0],[W,0],[vx+58,vy-18],[vx-58,vy-18]],'#141610');
   // side walls
-  pxPoly(ctx,[[0,0],[vx-58,vy-18],[vx-58,vy+36],[0,H]],'#27271f');
-  pxPoly(ctx,[[W,0],[vx+58,vy-18],[vx+58,vy+36],[W,H]],'#24241c');
+  pxPoly(ctx,[[0,0],[vx-58,vy-18],[vx-58,vy+36],[0,H]],'#3a3a2e');
+  pxPoly(ctx,[[W,0],[vx+58,vy-18],[vx+58,vy+36],[W,H]],'#35352a');
   // wall wainscot / panels
   for (let i=0;i<5;i++){
     const k=i/5;
@@ -4613,7 +4887,7 @@ function drawCorridor(ctx,t){
     ctx.fillRect(rx-Math.max(2,10-k*8),ly+h*0.28,Math.max(2,10-k*8),h*0.34);
   }
   // floor
-  pxPoly(ctx,[[0,H],[W,H],[vx+58,vy+36],[vx-58,vy+36]],'#11120e');
+  pxPoly(ctx,[[0,H],[W,H],[vx+58,vy+36],[vx-58,vy+36]],'#1d1e17');
   // floor planks
   for (let i=-7;i<=7;i++){
     const bx=240+i*38;
@@ -4622,7 +4896,7 @@ function drawCorridor(ctx,t){
   for (let i=0;i<5;i++){
     const k=i/5;
     const y=lerp(H,vy+36,k);
-    pxLine(ctx,0,y,W,y,'rgba(120,120,100,.07)');
+    pxLine(ctx,0,y,W,y,'rgba(130,128,106,.10)');
   }
   // side doors (receding)
   for (let i=0;i<2;i++){
@@ -4632,7 +4906,7 @@ function drawCorridor(ctx,t){
     const dw=Math.max(10,44-k*42);
     const dx=lx+8;
     ctx.fillStyle='#0a0907'; ctx.fillRect(dx,ly+dh*0.2,dw,dh);
-    ctx.fillStyle='#4a3523'; ctx.fillRect(dx,ly+dh*0.2,2,dh);
+    ctx.fillStyle='#6b4a2f'; ctx.fillRect(dx,ly+dh*0.2,2,dh);
     ctx.fillRect(dx+dw-2,ly+dh*0.2,2,dh);
     pxLine(ctx,dx+dw*0.7,ly+dh*0.5,dx+dw*0.7,ly+dh*0.5+3,'#b8873f');
     ctx.fillStyle='#0a0907'; ctx.fillRect(W-dx-dw,ly+dh*0.2,dw,dh);
@@ -4643,25 +4917,25 @@ function drawCorridor(ctx,t){
     const lx=lerp(0,vx-58,k), ly=lerp(0,vy-18,k), ly2=lerp(H,vy+36,k);
     const w=Math.max(8,26-k*18), h=w*1.25;
     ctx.fillStyle='#2a2418'; ctx.fillRect(lx+12,ly+(ly2-ly)*0.35,w,h);
-    ctx.fillStyle='#6a6558'; ctx.fillRect(lx+13,ly+(ly2-ly)*0.35+1,w-2,h-2);
+    ctx.fillStyle='#9a9382'; ctx.fillRect(lx+13,ly+(ly2-ly)*0.35+1,w-2,h-2);
     ctx.fillStyle='#171811'; ctx.fillRect(lx+14,ly+(ly2-ly)*0.35+2,w-4,h-4);
   }
   // far door (grows as you approach)
   const dw=58+depth*30, dh=104+depth*34;
   const dx=240-dw/2, dy=vy+36-dh;
-  ctx.fillStyle='#070605'; ctx.fillRect(dx,dy,dw,dh);
-  ctx.fillStyle='#4a3523'; ctx.fillRect(dx,dy,4,dh); ctx.fillRect(dx+dw-4,dy,4,dh);
+  ctx.fillStyle='#0c0a08'; ctx.fillRect(dx,dy,dw,dh);
+  ctx.fillStyle='#6b4a2f'; ctx.fillRect(dx,dy,4,dh); ctx.fillRect(dx+dw-4,dy,4,dh);
   ctx.fillRect(dx,dy,dw,4);
-  ctx.fillStyle='#6a4e30'; ctx.fillRect(dx+4,dy+4,dw-8,2);
+  ctx.fillStyle='#8a6a44'; ctx.fillRect(dx+4,dy+4,dw-8,2);
   // door panels
   ctx.strokeStyle='rgba(120,90,55,.35)'; ctx.lineWidth=1;
   ctx.strokeRect(dx+10,dy+14,dw-20,dh*0.38);
   ctx.strokeRect(dx+10,dy+dh*0.58,dw-20,dh*0.30);
   // light under door
-  ctx.fillStyle='rgba(232,194,122,.22)'; ctx.fillRect(dx+4,dy+dh-3,dw-8,2);
+  ctx.fillStyle='rgba(238,202,132,.46)'; ctx.fillRect(dx+4,dy+dh-3,dw-8,2);
   // phone table
   const tw=30+depth*8;
-  ctx.fillStyle='#2f2115'; ctx.fillRect(240-tw/2,dy+dh-18,tw,4);
+  ctx.fillStyle='#3f2c1c'; ctx.fillRect(240-tw/2,dy+dh-18,tw,4);
   ctx.fillRect(240-tw/2+4,dy+dh-14,3,12); ctx.fillRect(240+tw/2-7,dy+dh-14,3,12);
   // phone
   const pw=13+depth*4;
@@ -4680,19 +4954,541 @@ function drawCorridor(ctx,t){
   // bulb / wire
   pxLine(ctx,240,0,240,34,'#1a160f');
   pxEllipse(ctx,240,38,5,7,PAL.warm);
-  glowEllipse(ctx,240,38,42,46,PAL.warm,.05,'screen');
+  glowEllipse(ctx,240,38,60,66,PAL.warm,.13,'screen');
   // warm light pool on floor
-  glowEllipse(ctx,240,H-24,90,16,PAL.warm,.035,'screen');
+  glowEllipse(ctx,240,H-24,126,26,PAL.warm,.09,'screen');
   // dust
   for (let i=0;i<18;i++){
     const x=(i*97+((t*11)%97))%W, y=60+((i*53+((t*7)%53))%150);
-    r(ctx,x,y,1,1,'rgba(200,190,160,.16)');
+    r(ctx,x,y,1,1,'rgba(200,190,160,.22)');
   }
+  // faint bounce from the camera side: near floor readable, corners still die
+  pxPoly(ctx,[[0,H],[W,H],[300,168],[180,168]],'rgba(130,120,94,.075)');
   // vignette
   ctx.fillStyle='rgba(0,0,0,.38)';
   ctx.fillRect(0,0,W,24); ctx.fillRect(0,H-24,W,24);
   ctx.fillRect(0,0,26,H); ctx.fillRect(W-26,0,26,H);
+  if (state.corr.lookOn){
+    // low-light viewfinder: scanlines, a colder wash, corner brackets
+    ctx.fillStyle='rgba(10,18,20,.20)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(0,0,0,.16)';
+    for (let y=0;y<H;y+=3) ctx.fillRect(0,y,W,1);
+    ctx.strokeStyle='rgba(226,232,214,.45)'; ctx.lineWidth=1;
+    const m=10;
+    ctx.beginPath();
+    ctx.moveTo(m,m+12); ctx.lineTo(m,m); ctx.lineTo(m+12,m);
+    ctx.moveTo(W-m-12,m); ctx.lineTo(W-m,m); ctx.lineTo(W-m,m+12);
+    ctx.moveTo(m,H-m-12); ctx.lineTo(m,H-m); ctx.lineTo(m+12,H-m);
+    ctx.moveTo(W-m-12,H-m); ctx.lineTo(W-m,H-m); ctx.lineTo(W-m,H-m-12);
+    ctx.stroke();
+    if (Math.floor(t*2)%2===0){
+      ctx.fillStyle='rgba(216,74,56,.8)';
+      ctx.beginPath(); ctx.arc(W-30,18,3,0,Math.PI*2); ctx.fill();
+    }
+  }
 }
+// =========================================================
+//  ACT 2 — 暗房 / the darkroom behind the door
+// =========================================================
+// The corridor's phone call opens a door that was not in the plan. Behind it is
+// 徐英子's darkroom: six prints of every take, a splicer holding the 23 minutes
+// she cut out, and an enlarger throwing an empty frame at the wall. Nothing here
+// can be failed permanently and nothing kills the player — this act exists to
+// explain both endings, so the only verb is "look closer".
+const DARK_DOOR_DEPTH=0.74;   // the enlarger end of the room
+const DARK_EXIT_DEPTH=0.16;   // the way back in, behind the player
+function startDarkroom(){
+  if (state.scene!=='corridor' || state.transition || state.ending) return;
+  const apply=()=>{
+    state.scene='darkroom';
+    state.dark={depth:0,lookOn:false,hint:null,
+      seen:{line:false,bench:false,wall:false},
+      split:false,open:false,v:0.5,target:0.24+Math.random()*0.52,
+      tries:0,alignPing:0,tickAt:0,print:false};
+    state.choice=false;
+    state.camera=false;
+    camera.classList.remove('on'); dvBtn.classList.remove('active');
+    stage.classList.remove('cameraOn','reviewing');
+    camMeta.classList.add('hidden');
+    roleName.textContent='暗房';
+    modeEl.textContent='徐英子的剪片室';
+    updateChapterHUD();
+    fadeEl.classList.remove('on');
+    playMedia('door',0.4,0.06);
+    say('门后不是房间。是一间暗房，红灯还亮着。',3800);
+    prompt('按住 F 在红灯下显影　/　W 前进',5400);
+    endTransition();
+  };
+  if (state.silent){ apply(); return; }
+  state.transition=true; fadeEl.classList.add('on');
+  later(apply,600);
+}
+function darkLookOn(){
+  const k=state.dark;
+  if (!k || k.lookOn || k.open || state.ended || state.transition || state.paused) return;
+  k.lookOn=true;
+  const d=k.depth||0;
+  playMedia('scanPing',0.2,0.02);
+  if (d>0.08 && d<0.42 && !k.seen.line){
+    k.seen.line=true;
+    playMedia('water',0.26,0.05);
+    say('洗印线上挂着六张。每一张，她都在看镜头。',4200);
+    prompt('松开 F　·　W 前进',4400);
+    return;
+  }
+  if (d>0.40 && d<0.74 && !k.seen.bench){
+    k.seen.bench=true;
+    playMedia('clock',0.22,0.03);
+    say('剪辑台上一段带子被剪断了。断口正好是 23 分钟。',4200);
+    prompt('松开 F　·　回台前按 E 接带',4400);
+    return;
+  }
+  if (d>=DARK_DOOR_DEPTH && !k.seen.wall){
+    k.seen.wall=true;
+    playMedia('oldBreath',0.3,0.05);
+    glitchNow();
+    say('放大机在墙上打出一格空画面。里面没有人。',4200);
+    prompt('松开 F　·　回到剪辑台',4600);
+    return;
+  }
+  say('红灯下只有药水味。',2200);
+  prompt('松开 F　·　W 前进　/　S 后退',3200);
+}
+function darkLookOff(){
+  if (state.dark) state.dark.lookOn=false;
+}
+function darkAllSeen(){
+  const s=state.dark&&state.dark.seen;
+  return !!(s && s.line && s.bench && s.wall);
+}
+function darkInteract(){
+  if (state.scene!=='darkroom') return false;
+  const k=state.dark;
+  if (!k) return true;
+  if (k.open) return true;                       // Q / E / Space drive the splicer
+  const d=k.depth||0;
+  if (k.split){
+    if (d<=DARK_EXIT_DEPTH){ finishDarkroom(); return true; }
+    say('带子接回去了。往回走，门在身后。',3000);
+    prompt('S 后退到门口　/　E 推门',4400);
+    return true;
+  }
+  if (d>0.38 && d<0.78){
+    if (!darkAllSeen()){
+      const left=3-((k.seen.line?1:0)+(k.seen.bench?1:0)+(k.seen.wall?1:0));
+      say('先看清这三样：洗印线、剪辑台、放大机。',3000);
+      prompt('按住 F 显影　·　还差 '+left+' 处',4400);
+      return true;
+    }
+    k.open=true; k.lookOn=false;
+    playMedia('chair',0.3,0.04);
+    say('两段带子，中间差一点点。把它对上。',3400);
+    prompt('Q / E 移动带子　·　空格 接带　·　F 放下',6200);
+    updateChapterHUD();
+    return true;
+  }
+  if (d<=DARK_EXIT_DEPTH){ say('门在身后。先处理剪辑台上的带子。',3000); prompt('W 前进　/　回到剪辑台',4200); return true; }
+  say('暗房很小。洗印线、剪辑台、放大机。',2800);
+  prompt('W 前进　/　按住 F 显影',4200);
+  return true;
+}
+function closeSplicer(){
+  const k=state.dark;
+  if (!k || !k.open) return;
+  k.open=false;
+  updateChapterHUD();
+  prompt('按 E 重新接带　/　W 前进',4200);
+}
+function spliceAdjust(dir){
+  const k=state.dark;
+  if (!k || !k.open || k.split || !dir) return;
+  k.v=Math.max(0,Math.min(1,k.v+dir*0.022));
+  const now=performance.now();
+  if (now-(k.tickAt||0)>95){ k.tickAt=now; playMedia('clock',0.12,0.01); }
+  if (Math.abs(k.v-k.target)<=0.03 && now-(k.alignPing||0)>700){
+    k.alignPing=now; playMedia('scanPing',0.24,0.02);
+  }
+  updateChapterHUD();
+}
+function spliceCommit(){
+  const k=state.dark;
+  if (!k || !k.open || k.split) return;
+  const off=k.v-k.target;
+  if (Math.abs(off)<=0.03){
+    k.split=true; k.open=false;
+    playMedia('anomalySnap',0.5,0.03);
+    playMedia('revealImpact',0.2,0.05);
+    glitchNow();
+    updateChapterHUD();
+    later(()=>{ if (state.scene==='darkroom') say('接上了。那 23 分钟开始跑。',3200); },180);
+    later(()=>{ if (state.scene==='darkroom') say('画面里，她先回头——摄影机才跟上。',3800); },3000);
+    later(()=>{
+      if (state.scene!=='darkroom') return;
+      say('所以不是她在看你。是你在替她记。',4200);
+      prompt('L 拍下这一格　/　E 推门回去',5600);
+      playMedia('oldBreath',0.42,0.06);
+    },6200);
+    return;
+  }
+  k.tries=(k.tries||0)+1;
+  playMedia('squelch',0.3,0.03);
+  glitchNow();
+  say(off>0?'切口错开了。往左一点。':'切口错开了。往右一点。',2600);
+}
+function darkPrint(){
+  const k=state.dark;
+  if (state.scene!=='darkroom' || !k || !k.split || k.print) return;
+  k.print=true;
+  playMedia('shutter',0.5,0.02);
+  playMedia('oldBreath',0.5,0.05);
+  state.photoFlashUntil=performance.now()+220;
+  glitchNow();
+  say('洗出来两个人。站着的是她，举机器的是你。',4200);
+  prompt('E 推门回去',5200);
+  updateChapterHUD();
+}
+function finishDarkroom(){
+  if (state.scene!=='darkroom' || state.transition || state.ending) return;
+  const back=()=>{
+    if (state.ending) return;
+    if (state.dark) state.dark.lookOn=false;
+    state.scene='room'; state.phoneDone=true;
+    state.chapter=5; state.oldWomanGone=false; state.finalPhoto=true;
+    state.choice=true; state.darkChapter=false;
+    state.camera=false;
+    roleName.textContent='谢雨洁（重建）'; modeEl.textContent='徐英子的记忆';
+    updateChapterHUD();
+    fadeEl.classList.remove('on');
+    say('暗房的门在身后合上。她坐回椅子。',3400);
+    prompt('Q 让她抬手　/　按住 F 看取景器',5200);
+    endTransition();
+  };
+  if (state.silent){ back(); return; }
+  state.transition=true; fadeEl.classList.add('on');
+  playMedia('door',0.44,0.05);
+  later(back,760);
+}
+function updateDarkroom(dt){
+  const k=state.dark;
+  if (!k || state.paused || state.transition || state.ended) return;
+  if (!k.open && !k.lookOn){
+    if (keys.up) k.depth=Math.min(1,k.depth+dt*0.2);
+    if (keys.down) k.depth=Math.max(0,k.depth-dt*0.22);
+    const d=k.depth;
+    const beat=(!k.seen.line && d>0.06 && d<0.42 && k.hint!=='line')?'line'
+      :(!k.seen.bench && d>0.38 && d<0.76 && k.hint!=='bench')?'bench'
+      :(!k.seen.wall && d>=DARK_DOOR_DEPTH && k.hint!=='wall')?'wall':null;
+    if (beat){
+      k.hint=beat;
+      if (beat==='line'){
+        playMedia('water',0.22,0.04);
+        say('洗印线上挂着一排照片。按住 F，红灯下能显出来。',3400);
+        prompt('按住 F 显影　/　W 前进',4400);
+      } else if (beat==='bench'){
+        playMedia('clock',0.18,0.03);
+        say('剪辑台上有一段剪断的带子，和一个接带器。',3400);
+        prompt('按住 F 看台面　/　W 前进',4400);
+      } else {
+        say('最里面是放大机，正对着墙。按住 F 看它投出的画面。',3600);
+        prompt('按住 F 显影　/　S 退回剪辑台',4600);
+      }
+    }
+  }
+  if (state.chapter===5) updateChapterHUD();
+}
+// --- drawing -------------------------------------------------
+function drawDarkroom(ctx,t){
+  const W=PW,H=PH;
+  const k=state.dark||{depth:0};
+  const d=k.depth||0;
+  const seen=k.seen||{};
+  const vx=240, vy=118;
+  const lift=1+d*0.09;
+  ctx.save();
+  ctx.translate(vx,vy); ctx.scale(lift,lift); ctx.translate(-vx,-vy);
+
+  // shell
+  r(ctx,0,0,W,H,'#060404');
+  pxPoly(ctx,[[0,H],[W,H],[330,162],[150,162]],'#1c0f0c');
+  pxPoly(ctx,[[0,0],[W,0],[330,74],[150,74]],'#120a08');
+  pxPoly(ctx,[[0,0],[150,74],[150,162],[0,H]],'#331714');
+  pxPoly(ctx,[[W,0],[330,74],[330,162],[W,H]],'#2b1310');
+  r(ctx,150,74,180,88,'#24120f');
+  // safelight falloff: the middle of the room is the only place anything reads
+  glowEllipse(ctx,240,96,206,150,'#c04a38',.055,'screen');
+  glowEllipse(ctx,240,120,120,92,'#d05a40',.05,'screen');
+  // floor boards + back wall seam
+  for (let i=-6;i<=6;i++) pxLine(ctx,vx,162,vx+i*44,H,'rgba(0,0,0,.42)');
+  for (let i=1;i<=4;i++){ const y=lerp(162,H,i/5); pxLine(ctx,0,y,W,y,'rgba(150,110,95,.05)'); }
+  pxLine(ctx,150,162,330,162,'rgba(0,0,0,.6)');
+  // skirting + wall stains
+  r(ctx,150,158,180,4,'#0e0706');
+  r(ctx,0,238,150,4,'#0d0605'); r(ctx,330,238,150,4,'#0d0605');
+  for (let i=0;i<7;i++){
+    const sx=160+((i*47)%160), sy=78+((i*31)%78);
+    r(ctx,sx,sy,3+((i*5)%7),2,'rgba(10,6,5,.5)');
+  }
+  // enlarger beam (left column -> far wall)
+  const projX=176, projY=92, projW=58, projH=52;
+  pxPoly(ctx,[[92,150],[projX+projW,projY+8],[projX+projW,projY+projH],[92,176]],'rgba(216,140,110,.055)');
+  // projection frame on the wall
+  r(ctx,projX,projY,projW,projH,'#201110');
+  r(ctx,projX+2,projY+2,projW-4,projH-4,seen.wall?'#2a1a16':'#0d0807');
+  if (k.split){
+    // two figures standing where you stood
+    r(ctx,projX+16,projY+20,9,26,'#4a2a24'); r(ctx,projX+16,projY+14,7,8,'#6a463c');
+    r(ctx,projX+34,projY+22,9,24,'#3a201c'); r(ctx,projX+34,projY+16,7,8,'#5a3a32');
+  } else if (seen.wall){
+    r(ctx,projX+2,projY+2,projW-4,projH-4,'rgba(120,60,50,.10)');
+  }
+  // enlarger column + head
+  r(ctx,72,150,10,86,'#2a2622');
+  r(ctx,64,214,26,6,'#1a1714');
+  r(ctx,66,140,34,16,'#332e28');
+  r(ctx,88,146,14,8,'#454038');
+  r(ctx,92,152,6,4,'#8a6a4a');
+  r(ctx,66,138,34,3,'#4a443c');
+  // drying line with prints
+  pxLine(ctx,146,88,334,88,'#8a7460');
+  pxLine(ctx,146,89,334,89,'rgba(0,0,0,.5)');
+  for (let i=0;i<6;i++){
+    const x=158+i*29;
+    const sway=Math.sin(t*0.9+i*1.3)*(k.lookOn?0.6:1.6);
+    const py=90+sway;
+    r(ctx,x,py,2,4,'#3a2c22');
+    r(ctx,x-7,py+4,18,24,'#0d0907');
+    r(ctx,x-6,py+5,16,22,seen.line?'#ddd0b4':'#9a8f78');
+    if (seen.line){
+      // a face that is looking at the lens, in every single print
+      r(ctx,x-2,py+10,7,8,'#8a6450');
+      r(ctx,x-3,py+8,9,4,'#241a15');
+      r(ctx,x-1,py+12,1,1,'#100c09'); r(ctx,x+3,py+12,1,1,'#100c09');
+      r(ctx,x-2,py+18,6,5,'#3a2c22');
+    } else {
+      r(ctx,x-3,py+11,10,10,'rgba(60,50,42,.5)');
+    }
+  }
+  // editing bench (right, near camera)
+  pxPoly(ctx,[[292,178],[436,166],[454,180],[308,194]],'#4a3322');
+  pxPoly(ctx,[[308,194],[454,180],[454,188],[308,202]],'#291a10');
+  r(ctx,314,201,6,46,'#1a100a'); r(ctx,440,188,6,48,'#1a100a');
+  // edge highlight on the bench top + the bench lamp's pool on the work surface
+  pxLine(ctx,292,178,436,166,'rgba(226,178,136,.45)');
+  glowEllipse(ctx,420,162,40,18,'#c85a3c',.075,'screen');
+  glowEllipse(ctx,392,174,22,10,'#e0906a',.05,'screen');
+  // splicer on the bench
+  r(ctx,328,169,46,14,'#5a5a52');
+  r(ctx,332,164,38,7,'#6e6e64');
+  r(ctx,338,160,9,5,'#8e8e82'); r(ctx,355,160,9,5,'#8e8e82');
+  r(ctx,348,166,9,9,'#2a2a24');
+  r(ctx,350,168,5,2,'#d85a44');
+  r(ctx,330,181,42,2,'rgba(0,0,0,.45)');
+  // two reels
+  ctx.fillStyle='#231f1a'; ctx.beginPath(); ctx.arc(392,168,9,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#3a342c'; ctx.beginPath(); ctx.arc(392,168,6,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#231f1a'; ctx.beginPath(); ctx.arc(412,164,7,0,Math.PI*2); ctx.fill();
+  // loose tape strip
+  pxLine(ctx,336,176,404,171,'rgba(206,196,176,.50)');
+  // red bench lamp
+  r(ctx,420,150,3,20,'#1a1a16');
+  pxPoly(ctx,[[410,150],[434,148],[430,140],[414,142]],'#5a1c16');
+  glowEllipse(ctx,422,152,26,20,'#c04a38',.10,'screen');
+  // chemical trays
+  for (let i=0;i<3;i++){
+    const tx=18+i*38, ty=214+i*3;
+    pxPoly(ctx,[[tx,ty],[tx+34,ty-3],[tx+38,ty+10],[tx+3,ty+14]],'#241a16');
+    r(ctx,tx+2,ty+2,32,7,['#3a1410','#20242a','#2a2418'][i]);
+    r(ctx,tx+2,ty+2,32,1,'rgba(200,180,160,.10)');
+  }
+  // a slow drip into the first tray
+  const drip=((t*0.5)%1);
+  if (drip<0.6) r(ctx,30,196+drip*20,1,2,'rgba(200,170,150,.35)');
+  // right wall: a shelf of reels and two film strips drying
+  r(ctx,398,118,74,3,'#3a2418');
+  r(ctx,398,121,74,2,'rgba(0,0,0,.5)');
+  for (let i=0;i<4;i++){
+    const rx=404+i*17;
+    ctx.fillStyle='#1e1913'; ctx.beginPath(); ctx.arc(rx,112,7,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#40382c'; ctx.beginPath(); ctx.arc(rx,112,4,0,Math.PI*2); ctx.fill();
+  }
+  r(ctx,360,96,2,40,'#2a1d14'); r(ctx,382,92,2,44,'#2a1d14');
+  for (let i=0;i<5;i++){
+    r(ctx,359,98+i*7,4,4,'rgba(200,180,150,.20)');
+    r(ctx,381,94+i*7,4,4,'rgba(200,180,150,.16)');
+  }
+  // door back to the corridor (left wall)
+  // the doorway you came in by: close to camera, so it fills the left edge
+  pxPoly(ctx,[[0,104],[72,127],[72,216],[0,246]],'#140c09');
+  pxPoly(ctx,[[7,112],[65,132],[65,208],[7,234]],'#2a1f16');
+  pxPoly(ctx,[[7,112],[65,132],[65,136],[7,117]],'#120c08');
+  pxLine(ctx,4,106,4,242,'#6a4a2e');
+  pxLine(ctx,70,127,70,214,'#8a6440');
+  pxLine(ctx,7,112,65,132,'#7a5836');
+  r(ctx,56,168,5,9,'#d0a05a');
+  r(ctx,58,170,2,5,'#4a3418');
+  // light under the door: this is the way back out
+  pxPoly(ctx,[[7,230],[65,204],[65,209],[7,236]],'rgba(232,186,122,.34)');
+  pxPoly(ctx,[[7,236],[65,209],[65,212],[7,240]],'rgba(232,186,122,.12)');
+  r(ctx,71,128,2,86,'rgba(190,150,100,.35)');
+  // walked past it: the doorway sinks into the dark behind you
+  pxPoly(ctx,[[0,104],[72,127],[72,216],[0,246]],'rgba(8,5,4,'+Math.min(0.68,0.08+d*0.75).toFixed(2)+')');
+  // safelight
+  pxLine(ctx,240,0,240,20,'#2e2018');
+  pxPoly(ctx,[[230,20],[250,20],[256,32],[224,32]],'#4a2018');
+  r(ctx,226,30,28,3,'#e0603c');
+  glowEllipse(ctx,240,34,84,64,'#c04a38',.12,'screen');
+  glowEllipse(ctx,240,34,30,24,'#f07a4e',.14,'screen');
+  // wedge of red light on the floor
+  pxPoly(ctx,[[232,34],[248,34],[318,H-18],[162,H-18]],'rgba(200,72,50,.045)');
+  // dust
+  for (let i=0;i<20;i++){
+    const x=(i*89+((t*9)%89))%W, y=30+((i*41+((t*6)%41))%190);
+    r(ctx,x,y,1,1,'rgba(210,150,130,.14)');
+  }
+  ctx.restore();
+  // proximity brackets: what is within reach right now
+  if (!k.open){
+    let box=null;
+    if (k.split && d<=DARK_EXIT_DEPTH) box=[1,102,70,144];
+    else if (d>0.08 && d<0.42) box=[146,82,190,40];
+    else if (d>0.40 && d<0.74) box=[318,158,124,54];
+    else if (d>=DARK_DOOR_DEPTH) box=[168,84,74,66];
+    if (box && !k.split){
+      ctx.strokeStyle='rgba(216,150,120,.30)'; ctx.lineWidth=1;
+      const [bx,by,bw,bh]=box;
+      ctx.beginPath();
+      ctx.moveTo(bx,by+8); ctx.lineTo(bx,by); ctx.lineTo(bx+8,by);
+      ctx.moveTo(bx+bw-8,by); ctx.lineTo(bx+bw,by); ctx.lineTo(bx+bw,by+8);
+      ctx.moveTo(bx,by+bh-8); ctx.lineTo(bx,by+bh); ctx.lineTo(bx+8,by+bh);
+      ctx.moveTo(bx+bw-8,by+bh); ctx.lineTo(bx+bw,by+bh); ctx.lineTo(bx+bw,by+bh-8);
+      ctx.stroke();
+    }
+  }
+  // red wash + vignette
+  ctx.fillStyle='rgba(120,26,20,.10)'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(0,0,0,.34)';
+  ctx.fillRect(0,0,W,26); ctx.fillRect(0,H-26,W,26);
+  ctx.fillRect(0,0,28,H); ctx.fillRect(W-28,0,28,H);
+  if (k.lookOn){
+    ctx.fillStyle='rgba(14,20,22,.22)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(0,0,0,.14)';
+    for (let y=0;y<H;y+=3) ctx.fillRect(0,y,W,1);
+    ctx.strokeStyle='rgba(232,214,196,.42)'; ctx.lineWidth=1;
+    const m=10;
+    ctx.beginPath();
+    ctx.moveTo(m,m+12); ctx.lineTo(m,m); ctx.lineTo(m+12,m);
+    ctx.moveTo(W-m-12,m); ctx.lineTo(W-m,m); ctx.lineTo(W-m,m+12);
+    ctx.moveTo(m,H-m-12); ctx.lineTo(m,H-m); ctx.lineTo(m+12,H-m);
+    ctx.moveTo(W-m-12,H-m); ctx.lineTo(W-m,H-m); ctx.lineTo(W-m,H-m-12);
+    ctx.stroke();
+    if (Math.floor(t*2)%2===0){
+      ctx.fillStyle='rgba(216,74,56,.85)';
+      ctx.beginPath(); ctx.arc(W-30,18,3,0,Math.PI*2); ctx.fill();
+    }
+  }
+  if (k.open) drawSplicer(ctx,t);
+}
+function drawSplicer(ctx,t){
+  const k=state.dark||{v:0.5,target:0.5};
+  const off=k.v-k.target;
+  const aligned=Math.abs(off)<=0.03;
+  ctx.fillStyle='rgba(5,3,3,.70)'; ctx.fillRect(0,0,PW,PH);
+  // bench close-up panel
+  const px=52, py=44, pw=376, ph=184;
+  r(ctx,px,py,pw,ph,'#1d1411');
+  r(ctx,px+1,py+1,pw-2,ph-2,'#170f0d');
+  r(ctx,px,py,pw,1,'#7a3a2e'); r(ctx,px,py+ph-1,pw,1,'#7a3a2e');
+  r(ctx,px,py,1,ph,'#4a2620'); r(ctx,px+pw-1,py,1,ph,'#4a2620');
+  r(ctx,px+14,py+34,pw-28,1,'rgba(216,170,130,.22)');
+  // header
+  ctx.fillStyle='#c8a478'; ctx.font='13px "Songti SC",serif';
+  ctx.fillText('接　带',px+16,py+26);
+  ctx.fillStyle='rgba(200,180,150,.45)'; ctx.font='9px "Courier New",monospace';
+  ctx.fillText('23:06 — 23:29',px+92,py+25);
+  // magnifier frame: the two halves of the cut frame
+  const mx=px+pw/2-58, my=py+42, mw=116, mh=70;
+  r(ctx,mx-2,my-2,mw+4,mh+4,'#1c1512');
+  r(ctx,mx,my,mw,mh,'#0a0706');
+  // The two pieces of the torn frame are separate bits of paper: they slide
+  // past each other, so the photo only lines up when the seam meets the head.
+  // Two pieces of paper, not one image with a moving cut: each half keeps its
+  // own side of the frame and they slide apart, so the gap is real.
+  const gap=Math.max(-mw*0.30,Math.min(mw*0.30,off*160));
+  const mid=mx+mw/2;
+  r(ctx,mx-gap,my,Math.min(mw,gap+mid-mx+mw/2+gap),mh,'#080505');
+  ctx.save();
+  ctx.beginPath(); ctx.rect(mx,my,Math.max(0,(mid-gap)-mx),mh); ctx.clip();
+  darkFrame(ctx,mx-gap,my,mw,mh,aligned);
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath(); ctx.rect(mid+gap,my,Math.max(0,mx+mw-(mid+gap)),mh); ctx.clip();
+  darkFrame(ctx,mx+gap,my,mw,mh,aligned);
+  ctx.restore();
+  if (aligned){
+    r(ctx,mid-1,my,2,mh,'rgba(150,220,190,.18)');
+  } else {
+    r(ctx,mid-gap-1,my,1,mh,'rgba(216,74,56,.55)');
+    r(ctx,mid+gap,my,1,mh,'rgba(216,74,56,.55)');
+  }
+  // tape bed
+  const ty=py+130, tx0=px+22, tx1=px+pw-22;
+  r(ctx,tx0,ty-4,tx1-tx0,24,'#0c0806');
+  const seam=tx0+8+(k.v*(tx1-tx0-16));
+  const head=tx0+8+(k.target*(tx1-tx0-16));
+  // sprockets
+  for (let x=tx0+2;x<tx1-2;x+=6){
+    r(ctx,x,ty-1,2,2,'rgba(0,0,0,.55)');
+    r(ctx,x,ty+15,2,2,'rgba(0,0,0,.55)');
+  }
+  // tape surface, split at the seam
+  r(ctx,tx0,ty+2,seam-tx0,12,'#453b2e');
+  r(ctx,seam,ty+2,tx1-seam,12,'#453b2e');
+  r(ctx,tx0,ty+2,tx1-tx0,1,'rgba(240,220,190,.28)');
+  r(ctx,tx0,ty+13,tx1-tx0,1,'rgba(0,0,0,.45)');
+  // seam + head
+  r(ctx,seam-1,ty+1,2,14,'rgba(232,90,66,.95)');
+  r(ctx,head-1,ty-9,2,32,aligned?'rgba(150,220,190,.95)':'rgba(240,224,200,.75)');
+  r(ctx,head-11,ty-11,22,2,aligned?'rgba(150,220,190,.75)':'rgba(240,224,200,.45)');
+  r(ctx,head-11,ty+21,22,2,aligned?'rgba(150,220,190,.75)':'rgba(240,224,200,.45)');
+  // readout
+  ctx.font='10px "Courier New",monospace';
+  ctx.fillStyle=aligned?'#9fd8c0':'rgba(232,214,190,.7)';
+  const pct=(off*100);
+  ctx.fillText(aligned?'SEAM OK':('OFFSET '+(pct>0?'+':'')+pct.toFixed(0)+'%'),px+pw-104,py+ph-26);
+  ctx.fillStyle='rgba(220,198,168,.6)';
+  ctx.fillText('Q / E  MOVE',px+26,py+ph-26);
+  ctx.fillStyle='rgba(220,198,168,.42)';
+  ctx.fillText('SPACE  SPLICE　·　F  LOWER',px+26,py+ph-12);
+  // reel turning while the splicer is open
+  const spin=t*0.6;
+  ctx.fillStyle='#1d1915'; ctx.beginPath(); ctx.arc(px+pw-40,py+38,12,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(200,180,150,.25)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(px+pw-40,py+38,12,0,Math.PI*2); ctx.stroke();
+  for (let i=0;i<3;i++){
+    const a=spin+i*2.09;
+    ctx.beginPath(); ctx.moveTo(px+pw-40,py+38);
+    ctx.lineTo(px+pw-40+Math.cos(a)*10,py+38+Math.sin(a)*10); ctx.stroke();
+  }
+}
+function darkFrame(ctx,x,y,w,h,aligned){
+  // the cut frame: a face and a room; the seam rips it until the splice lands
+  ctx.fillStyle='#241a16'; ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='#3a2a22'; ctx.fillRect(x,y+h*0.6,w,h*0.4);
+  // head, shoulders: the subject of every print in this room
+  const cx=x+w*0.5, cy=y+h*0.42;
+  ctx.fillStyle='#8a6450'; ctx.fillRect(cx-13,cy-17,26,24);
+  ctx.fillStyle='#8a6450'; ctx.fillRect(cx-11,cy+7,22,6);
+  ctx.fillStyle='#2a1c16'; ctx.fillRect(cx-15,cy-22,30,8);
+  ctx.fillStyle='#2a1c16'; ctx.fillRect(cx-15,cy-16,4,12); ctx.fillRect(cx+11,cy-16,4,12);
+  ctx.fillStyle='#0d0906'; ctx.fillRect(cx-8,cy-6,4,3); ctx.fillRect(cx+4,cy-6,4,3);
+  ctx.fillStyle='#4a3026'; ctx.fillRect(cx-2,cy+1,4,2);
+  ctx.fillStyle='#3a2a22'; ctx.fillRect(cx-13,cy+13,26,18);   // shoulders
+  ctx.fillStyle='#1a1210'; ctx.fillRect(cx-4,cy+13,8,10);     // collar gap
+  if (aligned){
+    ctx.fillStyle='rgba(150,220,190,.14)'; ctx.fillRect(x,y,w,h);
+  }
+}
+
 function lerp(a,b,t){ return a+(b-a)*t; }
 function hideFail(msg){
   const h=state.hide;
@@ -4701,13 +5497,14 @@ function hideFail(msg){
   hardCloseCamera();
   state.transition=true;
   state.ritual.reviews=(state.ritual.reviews||0)+1;
-  playMedia('oldBreath',0.8,0.03); glitchNow();
+  playMedia('hideFail',0.52,0.04);
+  playMedia('oldBreath',0.65,0.03); glitchNow();
   say(msg||'她到你了。躲错了。',3000);
   fadeEl.classList.add('on');
   later(()=>{
     if (state.ending || state.chapter!==4) return;
     h.facing=Math.floor(Math.random()*HIDE_SPOTS.length);
-    h.remaining=12; h.active=true;
+    h.remaining=12; h.active=true; h.lureAt=performance.now()+4500;
     state.wx=2.5; state.wy=6.5; state.dir='S';
     fadeEl.classList.remove('on');
     updateChapterHUD();
@@ -4734,14 +5531,15 @@ function hideInteract(){
   }
   state.hide.lastSpot=spotIndex;
   state.hide.round++;
-  if (state.hide.round>=3){
+  if (state.hide.round>=4){
     state.hide.active=false;
-    say('三次都躲开了。她不再看你。',3000);
+    say('四次都躲开了。她不再看你。',3000);
     later(()=>startChapter(5),900);
   } else {
     state.hide.facing=(state.hide.facing+1+Math.floor(Math.random()*2))%HIDE_SPOTS.length;
     state.hide.remaining=12;
     state.hide.lastHud=-1;
+    state.hide.lureAt=performance.now()+4500;
     say('躲好了。她转向别处。',2800);
     prompt('F 看她　/　E 躲',4200);
   }
@@ -4756,10 +5554,16 @@ function updateHide(dt){
   if (h.remaining<=0){ hideFail('她到你了。'); return; }
   const tenth=Math.ceil(h.remaining*10);
   if (tenth!==h.lastHud){ h.lastHud=tenth; updateChapterHUD(); }
+  const now=performance.now();
+  if (!state.camera && h.remaining>5 && now>(h.lureAt||0)){
+    h.lureAt=now+4800+Math.random()*3200;
+    playMedia('hideLure',0.4,0.05);
+    say(HIDE_SPOTS[h.facing].label+'那边，响了一下。',2800);
+  }
 }
 function huntInteract(){
   if (state.chapter!==2 || !state.hunt) return false;
-  if (state.hunt.count>=3){ startChapter(3); return true; }
+  if (state.hunt.count>=4){ startChapter(3); return true; }
   const spot=nearestHuntSpot();
   if (!spot){
     say('她不在椅子上。按 F 用取景器找。',3000);
@@ -4771,18 +5575,21 @@ function huntInteract(){
     state.hunt.seen=false;
     state.ritual.reviews=(state.ritual.reviews||0)+1;
     playMedia('oldBreath',0.55,0.04); glitchNow();
-    if (state.hunt.count>=3){
-      say('三次。她站起来了。',3000);
+    if (state.hunt.count>=4){
+      say('四次。她站起来了。',3000);
       later(()=>startChapter(3),900);
     } else {
       state.hunt.pos=(state.hunt.pos+1+Math.floor(Math.random()*2))%HIDE_SPOTS.length;
-      say('找到你了。她又换了地方。',3200);
+      shiftHuntLayout();
+      say('找到你了。她又换了地方。房间好像也动了一下。',3600);
       prompt('F 取景器　/　E 靠近',5200);
     }
   } else {
     state.ritual.reviews=(state.ritual.reviews||0)+1;
     state.hunt.pos=(state.hunt.pos+1)%HIDE_SPOTS.length;
-    say('这里只有灰。她换了地方。',2800);
+    shiftHuntLayout();
+    playMedia('huntEmpty',0.38,0.05);
+    say('这里只有灰。她换了地方；供桌边的东西也不一样了。',3600);
   }
   updateChapterHUD();
   return true;
@@ -4817,6 +5624,7 @@ function takeAnomalyPhoto(){
   if (!state.camera){ say('先举起 F 看取景器。',2600); return; }
   const target=state.scanTarget;
   if (!target){ say('靠近香炉、水碗或门框，再按 L。',3000); return; }
+  if (!state.scanDone){ say('先按住 F 显影看清，再按 L。',2800); prompt('保持 F　/　L 快门',4200); return; }
   if (state.anomalies[target]){ say('这处已经拍过了。',2400); return; }
   if (state.battery<16){ say('电量不够拍。',2400); return; }
   state.battery=Math.max(0,state.battery-16);
@@ -4825,10 +5633,17 @@ function takeAnomalyPhoto(){
   state.photoFlashUntil=performance.now()+160;
   state.photoRevealUntil=performance.now()+1000;
   state.photoRevealTarget=target;
-  sCam(); if (actx) tone(1400,.06,'square',.04);
-  glitchNow();
+  playMedia('anomalySnap',0.5,0.03);
+  playMedia('shutter',0.35,0.02);
+  sCam(); glitchNow();
   updateChapterHUD();
   if (state.hunt.count>=3){
+    if (!state.ch3FrameOk){
+      state.ch3FrameGate=true;
+      say('三处都对上了。回带子里找闭眼那一帧。',3800);
+      prompt('R 回看　/　A D 逐帧',5200);
+      return;
+    }
     say('三处都对上了。',3000);
     later(()=>startChapter(4),1100);
   } else {
@@ -4868,6 +5683,7 @@ function takePhoto(){
   if (!state.camera || !state.ritual.active || state.ritual.done || state.ending) return;
   const target=state.scanTarget;
   if (!target){ say('没有对准。先靠近香炉、水碗或门框。',3000); return; }
+  if (!state.ritual.camSeen[target]){ say('先显影看清，再拍。',2800); prompt('保持 F 显影　/　Tab 记录',4200); return; }
   if (state.photos[target]){ say('这张已经拍过了。',2400); return; }
   if (state.battery<16){ say('电量不够拍。',2400); return; }
   state.battery=Math.max(0,state.battery-16);
@@ -4875,7 +5691,8 @@ function takePhoto(){
   state.photoFlashUntil=performance.now()+160;
   state.photoRevealUntil=performance.now()+1200;
   state.photoRevealTarget=target;
-  sCam(); if (actx) tone(1400,.06,'square',.04);
+  playMedia('shutter',0.55,0.02);
+  sCam(); if (actx) tone(1400,.04,'square',.03);
   glitchNow();
   updateRitualHUD();
   if (state.caseOpen) renderCase();
@@ -4890,7 +5707,14 @@ function completeCameraScan(){
   const target=state.scanTarget;
   if (!target) return;
   const r=state.ritual;
-  if (r.camSeen[target]){ state.scanDone=true; return; }
+  if (r.camSeen[target]){
+    state.scanDone=true;
+    // Re-scanning an already-revealed prop used to be silent, which read as
+    // "there is nothing here" to a player who came back to double-check.
+    const had={incense:'香三炷',bowl:'水靠左',thread:'线高结'}[target];
+    if (!state.silent) say('取景器：'+had+'。（已记录）',2200);
+    return;
+  }
   r.camSeen[target]=true;
   state.scanDone=true;
   updateRitualHUD();
@@ -4898,13 +5722,15 @@ function completeCameraScan(){
   const all=r.camSeen.incense&&r.camSeen.bowl&&r.camSeen.thread;
   const line={incense:'香三炷',bowl:'水靠左',thread:'线高结'}[target];
   if (!state.silent){
-    playMedia('oldBreath',0.32,0.05);
+    playMedia('scanPing',0.32,0.02);
+    playMedia('oldBreath',0.28,0.05);
     glitchNow();
-    say(all?'取景器：三样都对上了。别盯太久。':'取景器：'+line+'。',3800);
+    say(all?'取景器：三样都对上了。各拍一张，再起仪。':'取景器：'+line+'。',3800);
   } else {
-    say(all?'取景器：三样都对上了。':'取景器：'+line+'。',3000);
+    say(all?'取景器：三样都对上了。各拍一张。':'取景器：'+line+'。',3000);
   }
-  prompt('松开 F 放下 DV　·　Tab 记录　·　R 看旧带',4600);
+  const photoLine=photosAll()?'':'　·　L 拍照';
+  prompt('松开 F 放下 DV　·　Tab 记录'+photoLine+'　·　R 看旧带',4600);
 }
 function scanRisk(){
   const r=state.ritual;
@@ -4918,15 +5744,28 @@ function scanRisk(){
     say('取景器里多了一个人。',2800);
   }
 }
-function renderCameraScan(ctx,t){
-  const r=state.ritual;
+// Dev/sim seam: scan timing normally reads performance.now(); a harness can
+// point it at its own simulated clock so "hold F for 1.3s" advances honestly.
+let scanClock=null;
+function scanNow(){ return scanClock?scanClock():performance.now(); }
+function updateScanProgress(){
   const target=state.scanTarget;
-  const now=performance.now();
+  const now=scanNow();
   if (!state.scanStart) state.scanStart=now;
   state.scanT=Math.min(4.2,(now-state.scanStart)/1000);
   const s=state.scanT;
-  if (target && s>=1.2 && !state.scanDone) completeCameraScan();
-  if (target && s>=2.8) scanRisk();
+  if (state.chapter===3){
+    if (target && s>=1.0 && !state.scanDone) state.scanDone=true;
+  } else {
+    if (target && s>=1.2 && !state.scanDone) completeCameraScan();
+    if (target && s>=2.8) scanRisk();
+  }
+}
+function renderCameraScan(ctx,t){
+  updateScanProgress();
+  const r=state.ritual;
+  const target=state.scanTarget;
+  const s=state.scanT;
   camLowCtx.setTransform(1,0,0,1,0,0);
   camLowCtx.clearRect(0,0,640,480);
   drawCameraPixelScene(camLowCtx,t,{scan:true,looking:false,mismatch:false});
@@ -5049,7 +5888,7 @@ function renderCameraScan(ctx,t){
   ctx.font='10px "Courier New",monospace';
   ctx.textAlign='right';
   ctx.fillStyle='rgba(210,240,232,.5)';
-  const n=Object.values(state.photos).filter(Boolean).length;
+  const n=state.chapter===3?(state.hunt?state.hunt.count:0):Object.values(state.photos).filter(Boolean).length;
   ctx.fillText('PHOTO '+n+'/3',CW-44,CH-74);
   ctx.restore();
   drawCameraOverlay(ctx,t,'00:00:00','SCAN',false,false);
@@ -5125,10 +5964,10 @@ function renderHuntScan(ctx,t){
   ctx.save();
   ctx.font='11px "Courier New","PingFang SC",monospace';
   ctx.fillStyle='rgba(170,225,212,.82)';
-  ctx.fillText('取景器：她在'+HIDE_SPOTS[h.pos].label,40,CH-120);
+  ctx.fillText(state.chapter===2?('取景器：'+huntViewHint(h.pos)):'取景器：她在'+HIDE_SPOTS[h.pos].label,40,CH-120);
   ctx.font='9px "PingFang SC",sans-serif';
   ctx.fillStyle='rgba(170,225,212,.55)';
-  ctx.fillText(state.chapter===2?'走下取景器，靠近她。':'走近她，按 L 快门。',40,CH-102);
+  ctx.fillText(state.chapter===2?'放下 DV，在房间里找同一处。':'走近她，按 L 快门。',40,CH-102);
   ctx.restore();
   ctx.save();
   ctx.font='10px "Courier New",monospace';
@@ -5290,10 +6129,10 @@ function drawRitualClue(ctx){
   const rows=loop===0
     ? [['香','二炷'],['水','居中'],['线','低结']]
     : mercy
-      ? [['香','三炷'],['水','靠左'],['线','高结']]
+      ? [['香','？'],['水','靠左'],['线','？']]
       : [['香','？'],['水','？'],['线','？']];
-  const title=loop===0?'供桌原样':(mercy?'这次是真的':'这一页不对');
-  const note=loop===0?'照这个摆回去。':(mercy?'带子终于对上了。':'带子在骗你。看实物。');
+  const title=loop===0?'供桌原样':(mercy?'只对上一项':'这一页不对');
+  const note=loop===0?'照这个摆回去。':(mercy?'带子只对上了水。香和绳，看实物。':'带子在骗你。看实物。');
   ctx.save();
   ctx.fillStyle='rgba(7,8,6,.92)'; ctx.fillRect(x,y,w,h);
   ctx.strokeStyle=damaged?'rgba(192,74,56,.62)':'rgba(216,201,168,.36)'; ctx.lineWidth=1;
@@ -5312,7 +6151,7 @@ function drawRitualClue(ctx){
     ctx.fillStyle=mercy?'#f0b38a':'#f0e7d2'; ctx.fillText(rows[i][1],x+92,yy);
     ctx.fillStyle=mercy?'#d84a38':'#c04a38';
     if (i===0){
-      const n=loop===0?2:(mercy?3:0);
+      const n=loop===0?2:0;
       for (let k=0;k<n;k++) ctx.fillRect(x+58+k*4,yy-10,1,10);
       if (!n){ ctx.font='16px "Courier New",monospace'; ctx.fillText('×',x+58,yy); ctx.font='12px "Courier New","PingFang SC",monospace'; }
     }
@@ -5323,7 +6162,6 @@ function drawRitualClue(ctx){
     }
     if (i===2){
       if (loop===0){ ctx.fillRect(x+59,yy-6,2,2); ctx.fillRect(x+60,yy-4,1,5); }
-      else if (mercy){ ctx.fillRect(x+59,yy-12,2,2); ctx.fillRect(x+60,yy-10,1,9); }
       else { ctx.font='16px "Courier New",monospace'; ctx.fillText('×',x+58,yy); ctx.font='12px "Courier New","PingFang SC",monospace'; }
     }
   }
@@ -5418,6 +6256,7 @@ function choose(ending){
 }
 function interact(){
   if (!state.started || state.ended || state.camera || state.review || state.caseOpen || state.transition) return;
+  if (state.scene==='darkroom'){ darkInteract(); return; }
   if (state.scene==='corridor'){ corridorInteract(); return; }
   if (state.chapter===5 && state.finalPhoto && !state.phoneDone){
     if (nearDoor()) startCorridor();
@@ -5461,7 +6300,32 @@ function interact(){
 // =========================================================
 //  INPUT
 // =========================================================
+if (new URLSearchParams(location.search).get('dump')==='1'){
+  // headless state probe: every field a screenshot cannot show
+  setInterval(()=>{
+    const d={scene:state.scene,ch:state.chapter,ph:state.phoneDone,fp:state.finalPhoto,
+      corr:state.corr,dark:state.dark,trans:state.transition,lk:state.inputLock,
+      started:state.started,ended:state.ended,st:+state.time.toFixed(1)};
+    document.title='DUMP '+JSON.stringify(d);
+  },500);
+}
 window.addEventListener('keydown',(e)=>{
+  // Keyboard-only players finish the game on the keyboard, so the shelves need
+  // keys too: Enter restarts, C opens credits, Esc returns to the title.
+  if (state.ended && !endEl.classList.contains('hidden')
+      && (creditsEl===null || creditsEl.classList.contains('hidden'))){
+    if (e.code==='Enter'||e.code==='NumpadEnter'||e.code==='Space'){
+      e.preventDefault(); ensureAudio(); startGame(false); return;
+    }
+    if (e.code==='KeyC'){ e.preventDefault(); showCredits('end'); return; }
+    if (e.code==='Escape'){ e.preventDefault(); returnToTitle(); return; }
+  }
+  if (!state.started && !startEl.classList.contains('hidden')
+      && (creditsEl===null || creditsEl.classList.contains('hidden'))){
+    if (e.code==='Enter'||e.code==='NumpadEnter'||e.code==='Space'){
+      e.preventDefault(); ensureAudio(); startGame(false); return;
+    }
+  }
   if (state.paused && e.code!=='Escape') return;
   // Case board: Tab opens/closes; Esc closes before pause.
   if (e.code==='Tab' && state.started && !state.ended){
@@ -5483,13 +6347,25 @@ window.addEventListener('keydown',(e)=>{
     return;
   }
   if (state.paused) return;
+  // Hands in the splicer: Q / E slide the tape, Space joins it, F lets go.
+  if (state.scene==='darkroom' && state.dark && state.dark.open && !state.ended){
+    if (e.code==='KeyQ'||e.code==='ArrowLeft'){ e.preventDefault(); spliceAdjust(-1); return; }
+    if (e.code==='KeyE'||e.code==='ArrowRight'){ e.preventDefault(); spliceAdjust(1); return; }
+    if (e.code==='Space'||e.code==='Enter'){ e.preventDefault(); spliceCommit(); return; }
+    if (e.code==='KeyF' && !e.repeat){ e.preventDefault(); closeSplicer(); return; }
+    if (e.code==='KeyW'||e.code==='KeyS'||e.code==='ArrowUp'||e.code==='ArrowDown'){ e.preventDefault(); return; }
+  }
   if (e.repeat && !['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)){
     e.preventDefault(); return;
   }
   if (state.inputLock && e.code!=='Escape'){ e.preventDefault(); return; }
   if (e.code==='KeyM'){ e.preventDefault(); ensureAudio(); toggleMute(); return; }
   if (e.code==='Space'){ e.preventDefault(); commitRitual(); return; }
-  if (e.code==='KeyL'){ e.preventDefault(); takePhoto(); return; }
+  if (e.code==='KeyL'){
+    e.preventDefault();
+    if (state.scene==='darkroom') darkPrint(); else takePhoto();
+    return;
+  }
   if (e.code==='KeyA'||e.code==='ArrowLeft') keys.left=true;
   if (e.code==='KeyD'||e.code==='ArrowRight') keys.right=true;
   if (e.code==='KeyW'||e.code==='ArrowUp') keys.up=true;
@@ -5511,14 +6387,24 @@ window.addEventListener('keydown',(e)=>{
   if (e.code==='KeyR'){ e.preventDefault(); if (state.review) exitReview(); else if (canReview()) startReview(); }
   if (e.code==='KeyP'){ e.preventDefault(); toggleReviewSplit(); }
   if (e.code==='Escape' && state.review){ e.preventDefault(); exitReview(); }
-  if (e.code==='KeyF'){ e.preventDefault(); if (!state.camera) setCamera(true); }
+  if (e.code==='KeyF'){
+    e.preventDefault();
+    if (state.scene==='darkroom') darkLookOn();
+    else if (state.scene==='corridor') corridorLookOn();
+    else if (!state.camera) setCamera(true);
+  }
 });
 window.addEventListener('keyup',(e)=>{
   if (e.code==='KeyA'||e.code==='ArrowLeft') keys.left=false;
   if (e.code==='KeyD'||e.code==='ArrowRight') keys.right=false;
   if (e.code==='KeyW'||e.code==='ArrowUp') keys.up=false;
   if (e.code==='KeyS'||e.code==='ArrowDown') keys.down=false;
-  if (e.code==='KeyF'){ e.preventDefault(); if (state.camera) setCamera(false); }
+  if (e.code==='KeyF'){
+    e.preventDefault();
+    if (state.scene==='darkroom') darkLookOff();
+    else if (state.scene==='corridor') corridorLookOff();
+    else if (state.camera) setCamera(false);
+  }
 });
 function clearKeys(){
   keys.left=false; keys.right=false; keys.up=false; keys.down=false;
@@ -5565,15 +6451,55 @@ window.addEventListener('pointerup',(e)=>{
 });
 stage.addEventListener('contextmenu',(e)=>e.preventDefault());
 
+// Shared by the render loop and the simulated-player harness so that both
+// drive exactly the same movement rules.
+function advanceMovement(dt){
+  if (!state.camera && !state.ending && state.started && !state.caseOpen && !state.transition && !state.inputLock){
+    let dx=0,dy=0;
+    if (keys.left) dx-=1;
+    if (keys.right) dx+=1;
+    if (keys.up) dy-=1;
+    if (keys.down) dy+=1;
+    if (dx||dy){
+      const l=Math.hypot(dx,dy); dx/=l; dy/=l;
+      const nx=state.wx+dx*2.6*dt;
+      if (!blocked(nx,state.wy)) state.wx=nx;
+      const ny=state.wy+dy*2.6*dt;
+      if (!blocked(state.wx,ny)) state.wy=ny;
+      state.moving=true;
+      state.walk+=dt*9;
+      if (Math.abs(dx)>Math.abs(dy)) state.dir=dx>0?'E':'W';
+      else state.dir=dy>0?'S':'N';
+    } else {
+      state.moving=false;
+    }
+  } else {
+    state.moving=false;
+  }
+}
 // =========================================================
 //  LOOP
 // =========================================================
 function frame(now){
+  if (window.__stopLoop) return;
   const dt=Math.min(0.05,(now-state.last)/1000||0);
+  if (FUZZ_ACTIVE){ requestAnimationFrame(frame); return; }
   state.last=now;
   if (state.started && !state.paused){
     state.time+=dt;
     tickJobs();
+    if (state.scene==='darkroom'){
+      updateDarkroom(dt);
+      pctx.clearRect(0,0,PW,PH);
+      drawDarkroom(pctx,state.time);
+      cctx.clearRect(0,0,CW,CH);
+      camera.classList.remove('on');
+      stage.classList.remove('cameraOn','reviewing');
+      updateVideoLayer();
+      syncCameraOverlay();
+      requestAnimationFrame(frame);
+      return;
+    }
     if (state.scene==='corridor'){
       updateCorridor(dt);
       pctx.clearRect(0,0,PW,PH);
@@ -5595,14 +6521,8 @@ function frame(now){
       if (keys.right) dir+=1;
       if (state.reviewKind==='look'){
         if (dir && now-(state.lookStepAt||0)>170){
-          state.lookFrame=Math.max(0,Math.min(7,(state.lookFrame||0)+dir));
           state.lookStepAt=now;
-          playMedia('clock',0.18,0.01);
-          renderTimeline();
-          if (state.lookFrame===5 && (state.reviewCount||0)>=2 && !state.blinkSaid){
-            state.blinkSaid=true;
-            say('……她刚才，是不是闭眼了？',3400);
-          }
+          stepLookFrame(dir);
         }
       } else if (dir){
         state.reviewPos=Math.max(0,Math.min(1,state.reviewPos+dir*0.12*dt));
@@ -5616,28 +6536,7 @@ function frame(now){
       return;
     }
     // movement
-    if (!state.camera && !state.ending && state.started && !state.caseOpen && !state.transition && !state.inputLock){
-      let dx=0,dy=0;
-      if (keys.left) dx-=1;
-      if (keys.right) dx+=1;
-      if (keys.up) dy-=1;
-      if (keys.down) dy+=1;
-      if (dx||dy){
-        const l=Math.hypot(dx,dy); dx/=l; dy/=l;
-        const nx=state.wx+dx*2.6*dt;
-        if (!blocked(nx,state.wy)) state.wx=nx;
-        const ny=state.wy+dy*2.6*dt;
-        if (!blocked(state.wx,ny)) state.wy=ny;
-        state.moving=true;
-        state.walk+=dt*9;
-        if (Math.abs(dx)>Math.abs(dy)) state.dir=dx>0?'E':'W';
-        else state.dir=dy>0?'S':'N';
-      } else {
-        state.moving=false;
-      }
-    } else {
-      state.moving=false;
-    }
+    advanceMovement(dt);
     updateBattery(dt);
     updateHide(dt);
     updateDetailAudio(now);
@@ -5703,8 +6602,12 @@ function reset(){
   state.ritual={incense:2,bowl:1,thread:0,active:false,seen:false,done:false,loop:0,reviews:0,eyeSaid:false,inspected:{incense:false,bowl:false,thread:false},camSeen:{incense:false,bowl:false,thread:false}};
   state.scareUntil=0; state.scareAt=0; state.caseOpen=false; state.scanStart=0; state.scanT=0; state.scanDone=false; state.scanRisked=false; state.scanTarget=null; state.battery=100; state.lastBatteryAt=0; state.photos={incense:false,bowl:false,thread:false}; state.photoScarePending=false; state.photoFlashUntil=0; state.photoRevealUntil=0; state.photoRevealTarget=null;
   state.chapter=1; state.scene='room'; state.hunt=null; state.hide=null;
-  state.anomalies={incense:false,bowl:false,thread:false}; state.finalPhoto=false; state.phoneDone=false;
-  state.corr={depth:0,answered:false,ringAt:0}; state.oldWomanGone=false; state.darkChapter=false;
+  state.anomalies={incense:false,bowl:false,thread:false}; state.ch3FrameGate=false; state.ch3FrameOk=false;
+  state.finalPhoto=false; state.phoneDone=false;
+  state.corr={depth:0,answered:false,doorOpen:false,ringAt:0,portrait:false,threadSeen:false,
+    lookOn:false,roomSeen:false,facesSeen:false,nameSeen:false};
+  state.dark=null;
+  state.oldWomanGone=false; state.darkChapter=false;
   state.reviewQuiz={step:0,locked:false,wrong:0}; state.reconOffset=0.08; state.reconAligned=false; state.reconEver=false; state.reconDragging=false;
   state.runStart=0; state.runEnd=0; state.chapterStartedAt=0; state.chapterTimes=[]; state.inputLock=false; state.pauseQueued=false; state.last=0;
   if (caseEl) caseEl.classList.add('hidden');
@@ -5968,7 +6871,17 @@ if (params.get('videodbg')==='1'){
   },2600);
 }
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-async function waitGame(sec){ const target=state.time+sec; let guard=0; while(state.time<target && guard++<200) await sleep(50); }
+async function waitGame(sec){
+  const target=state.time+sec;
+  let guard=0;
+  while(state.time<target && guard++<500){
+    if (params.get('test')==='1'){
+      state.time=Math.min(target, state.time+0.1);
+      tickJobs();
+    }
+    await sleep(20);
+  }
+}
 async function runTest(){
   const out=[]; const check=(n,c,x='')=>out.push({name:n,pass:!!c,extra:x});
   startGame(true);
@@ -5987,8 +6900,18 @@ async function runTest(){
   check('rebuildLabel', roleName.textContent.includes('重建'));
   await sleep(1900);
   check('uncanny', state.uncanny);
+  // Regression: skipping the E dialogue used to leave talked=false forever,
+  // which blocked raising the DV anywhere away from her (ch1 props, corridor).
+  state.firstCameraDone=true; state.talked=false; state.camera=false;
+  state.wx=6.3; state.wy=6.6;
+  setCamera(true);
+  check('cameraAfterIntro', state.camera, 'talked=false far from her');
+  setCamera(false);
+  state.talked=true;
   check('frontFacing', state.front);
   check('ritualActive', state.ritual.active && !state.ritual.done);
+  state.wx=7.05; state.wy=6.3; commitRitual();
+  check('scanGate', !state.ritual.done && state.ritual.loop===0);
   state.battery=100; state.camera=true; updateBattery(1);
   check('batteryDrain', state.battery<100);
   state.camera=false; state.battery=100;
@@ -5997,9 +6920,13 @@ async function runTest(){
   state.scanTarget='bowl'; completeCameraScan();
   state.scanTarget='thread'; completeCameraScan();
   check('cameraScan', state.ritual.camSeen.incense && state.ritual.camSeen.bowl && state.ritual.camSeen.thread);
-  state.scanTarget='incense'; state.battery=100; takePhoto();
-  check('photoShot', state.photos.incense && state.battery<100);
-  state.photos={incense:false,bowl:false,thread:false}; state.battery=100;
+  state.camera=false; state.wx=7.05; state.wy=6.3; commitRitual();
+  check('photoGate', !state.ritual.done && state.ritual.loop===0);
+  state.camera=true;
+  for (const tgt of ['incense','bowl','thread']){
+    state.scanTarget=tgt; state.battery=100; takePhoto();
+  }
+  check('photoAll', photosAll());
   state.camera=false; state.scanStart=0; state.scanTarget=null;
   openCase();
   check('caseBoard', state.caseOpen && caseTapeEl.textContent.includes('甲'));
@@ -6019,11 +6946,19 @@ async function runTest(){
   check('findOne', state.hunt.count===1);
   startChapter(3);
   check('chapter3', state.chapter===3 && state.hunt.mode==='anomaly');
-  state.camera=true; state.battery=100; state.scanTarget='incense'; takeAnomalyPhoto();
-  check('anomalyPhoto', state.anomalies.incense && state.hunt.count===1 && state.battery<100);
-  state.camera=false; state.battery=100;
-  state.hunt.count=3; startChapter(4);
-  check('chapter4', state.chapter===4 && state.hide && state.oldWomanGone);
+  for (const tgt of ['incense','bowl','thread']){
+    state.camera=true; state.battery=100; state.scanTarget=tgt; state.scanDone=true;
+    takeAnomalyPhoto();
+  }
+  check('anomalyAll', state.anomalies.incense&&state.anomalies.bowl&&state.anomalies.thread&&state.hunt.count===3);
+  check('ch3FrameGate', state.ch3FrameGate && !state.ch3FrameOk && state.chapter===3);
+  state.camera=false;
+  startReview();
+  check('ch3LookReview', state.review && state.reviewKind==='look');
+  state.lookFrame=5; state.ch3FrameOk=true;
+  exitReview();
+  await waitGame(1.2);
+  check('ch3ToCh4', state.chapter===4 && !state.ch3FrameGate && state.hide && state.oldWomanGone);
   state.hide.facing=0; state.wx=HIDE_SPOTS[1].x; state.wy=HIDE_SPOTS[1].y; interact();
   state.hide.round=2; state.hide.facing=0; state.wx=HIDE_SPOTS[2].x; state.wy=HIDE_SPOTS[2].y; interact();
   startChapter(5);
@@ -6033,7 +6968,41 @@ async function runTest(){
   startCorridor();
   check('corridor', state.scene==='corridor');
   state.corr.depth=1; answerPhone();
+  await sleep(60);
+  check('phoneAnswered', state.corr.answered && state.scene==='corridor' && !state.phoneDone);
+  startDarkroom();
+  check('darkroom', state.scene==='darkroom' && !!state.dark);
+  state.dark.depth=0.24; darkLookOn(); darkLookOff();
+  check('darkLine', state.dark.seen.line);
+  state.dark.depth=0.56; darkLookOn(); darkLookOff();
+  check('darkBench', state.dark.seen.bench);
+  state.dark.depth=0.84; darkLookOn(); darkLookOff();
+  check('darkWall', state.dark.seen.wall);
+  check('darkAllSeen', darkAllSeen());
+  state.dark.depth=0.56; darkInteract();
+  check('splicerOpen', state.dark.open && !state.dark.split);
+  // a splice that misses must not lock the player out
+  state.dark.v=0.2; state.dark.target=0.74;
+  spliceCommit();
+  check('splicerReject', !state.dark.split && state.dark.tries>0 && state.dark.open);
+  for (let i=0;i<24;i++) spliceAdjust(1);
+  check('splicerNear', Math.abs(state.dark.v-state.dark.target)<=0.03,
+    'v='+state.dark.v.toFixed(2)+' t='+state.dark.target.toFixed(2));
+  spliceCommit();
+  check('spliced', state.dark.split && !state.dark.open);
+  darkPrint();
+  check('darkPrint', state.dark.print);
+  darkPrint();                       // idempotent: no double shutter
+  check('darkPrintOnce', state.dark.print);
+  state.dark.depth=0.56;
+  darkInteract();
+  check('exitNotYet', state.scene==='darkroom');
+  state.dark.depth=0.06;
+  darkInteract();
+  check('exitDoor', state.scene==='room');
+  finishDarkroom();
   check('phone', state.phoneDone && state.scene==='room');
+  check('darkroomHudOff', !document.getElementById('chapterName').textContent.includes('暗房'));
   state.camera=false; state.wx=9.9; state.wy=3.6;
   raiseHand();
   await sleep(200);
@@ -6050,7 +7019,7 @@ async function runTest(){
   state.reviewPos=0.4; updateReviewKind();
   check('gap', state.reviewKind==='gap');
   check('gapFound', state.reviewFoundGap);
-  reviewPick(2); reviewPick(3);
+  reviewPick(2); reviewPick(3); reviewPick(2);
   check('reviewQuiz', state.reviewQuiz.locked);
   setReconOffset(0);
   check('aligned', state.reconAligned);
@@ -6081,6 +7050,26 @@ async function runTest(){
   await sleep(800);
   check('helpEnding', state.ending==='help' && state.ended);
   check('runEnd', state.runEnd>0 && endRunEl.textContent.includes('用时'));
+  // keyboard-only ending shelf: Enter restarts, C opens credits, Esc → title
+  const key=(code)=>window.dispatchEvent(new KeyboardEvent('keydown',{code,bubbles:true}));
+  key('KeyC');
+  await sleep(80);
+  check('endCreditsKey', !creditsEl.classList.contains('hidden'));
+  key('Escape');
+  await sleep(80);
+  check('endCreditsEsc', creditsEl.classList.contains('hidden') && !endEl.classList.contains('hidden'));
+  key('Enter');
+  await sleep(160);
+  check('endEnterRestart', state.started && !state.ended && endEl.classList.contains('hidden') && state.runStart>0);
+  state.talked=true; choose('help');
+  await sleep(700);
+  check('endedAgain', state.ended && !endEl.classList.contains('hidden'));
+  key('Escape');
+  await sleep(160);
+  check('endEscToTitle', !state.started && !startEl.classList.contains('hidden'));
+  key('Enter');
+  await sleep(140);
+  check('titleEnterStart', state.started && !state.ended && startEl.classList.contains('hidden'));
   returnToTitle();
   await sleep(160);
   check('titleReturn', !state.started && !startEl.classList.contains('hidden') && endEl.classList.contains('hidden'));
@@ -6097,7 +7086,364 @@ async function runTest(){
   el.style.cssText='position:fixed;left:8px;top:8px;z-index:9999;background:#000;color:#0f0;font:11px monospace;padding:8px;max-height:90vh;overflow:auto;';
   el.textContent=JSON.stringify(out,null,2);
   document.body.appendChild(el);
-  document.title=out.every(x=>x.pass)?'TEST PASS':'TEST FAIL';
+  const okN=out.filter(x=>x.pass).length;
+  document.title=(out.every(x=>x.pass)?'TEST PASS ':'TEST FAIL ')+okN+'/'+out.length;
+}
+
+// =========================================================
+//  READABILITY AUDIT  (?lumtest=1)
+// =========================================================
+// The release checklist asks a human "is the darkroom readable on a dim
+// screen?" That is a measurable question on the rendered frame, so measure it:
+// paint each of the three development beats, crop the proximity bracket the
+// game itself draws around the target, and require that after a 55% display
+// gain (a cheap TN panel at low brightness) the target still carries a
+// highlight and real edge structure instead of a flat black box.
+const DIM_GAIN=0.55, DIM_LIFT=8;   // crude "dim laptop in a dark room" transfer
+function lumOf(r,g,b){ return 0.2126*r+0.7152*g+0.0722*b; }
+function dimLum(l){ return Math.max(0,(l-DIM_LIFT)*DIM_GAIN); }
+// A region's readability is not its average brightness — most of a dark room is
+// legitimately black. What matters is whether the thing carries highlights
+// (can I find an edge?) and local contrast (can I tell it from the wall?).
+function frameStats(box){
+  const x0=Math.max(0,Math.round(box[0])), y0=Math.max(0,Math.round(box[1]));
+  const x1=Math.min(PW,Math.round(box[0]+box[2])), y1=Math.min(PH,Math.round(box[1]+box[3]));
+  const w=Math.max(1,x1-x0), h=Math.max(1,y1-y0);
+  const d=pctx.getImageData(x0,y0,w,h).data;
+  const raw=[], dim=[]; let edge=0, edgeN=0;
+  for (let y=0;y<h;y++){
+    for (let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      const l=lumOf(d[i],d[i+1],d[i+2]);
+      raw.push(l); dim.push(dimLum(l));
+      if (x+1<w){ edge+=Math.abs(dimLum(lumOf(d[i+4],d[i+5],d[i+6]))-dimLum(l)); edgeN++; }
+      if (y+1<h){ const j=i+w*4; edge+=Math.abs(dimLum(lumOf(d[j],d[j+1],d[j+2]))-dimLum(l)); edgeN++; }
+    }
+  }
+  raw.sort((a,b)=>a-b); dim.sort((a,b)=>a-b);
+  const q=(arr,p)=>arr[Math.min(arr.length-1,Math.floor(arr.length*p))]||0;
+  return {
+    mean:+(dim.reduce((a,b)=>a+b,0)/dim.length).toFixed(1),
+    rawP50:+q(raw,.5).toFixed(0), rawP90:+q(raw,.9).toFixed(0), rawP99:+q(raw,.99).toFixed(0),
+    rawMax:+(raw[raw.length-1]||0).toFixed(0),
+    dimP99:+q(dim,.99).toFixed(0),
+    dimContrast:+(q(dim,.95)-q(dim,.5)).toFixed(1),
+    edge:+(edge/Math.max(1,edgeN)).toFixed(2)
+  };
+}
+function drawAndGrab(scene){
+  state.time=(state.time||0)+0.4;
+  if (scene==='darkroom') drawDarkroom(pctx,state.time);
+  else drawCorridor(pctx,state.time);
+}
+function frameDiff(A,B){
+  let s=0,n=0;
+  for (let k=0;k<A.length;k+=4*37){ s+=Math.abs(A[k]-B[k])+Math.abs(A[k+1]-B[k+1]); n++; }
+  return +(s/n).toFixed(2);
+}
+async function runLumTest(){
+  const out=[]; const check=(n,c,x='')=>out.push({name:n,pass:!!c,extra:x});
+  startGame(true); state.silent=true;
+  await sleep(200);
+  state.ended=false; state.transition=false; state.paused=false;
+
+  // --- darkroom: the three development beats
+  // "must be findable" = there is a highlight AND local contrast, even after a
+  // 55% display gain. Mood (low mean) is allowed and expected.
+  const beats=[
+    {key:'line',  depth:0.24, box:[146,82,190,40]},
+    {key:'bench', depth:0.56, box:[300,150,150,60]},
+    {key:'wall',  depth:0.84, box:[168,84,74,66]}
+  ];
+  const darkFrames=[];
+  state.scene='darkroom';
+  state.dark={depth:0.24,lookOn:false,hint:null,seen:{line:false,bench:false,wall:false},
+    open:false,split:false,print:false,v:0.5,target:0.5};
+  const darkStats={};
+  for (const b of beats){
+    state.dark.depth=b.depth;
+    state.dark.lookOn=false; state.dark.open=false;
+    pctx.clearRect(0,0,PW,PH);
+    drawAndGrab('darkroom');
+    const st=frameStats(b.box);
+    darkStats[b.key]=st;
+    darkFrames.push(pctx.getImageData(0,0,PW,PH).data.slice());
+    check('dark '+b.key+' has a highlight', st.rawP99>=95 && st.dimP99>=45, JSON.stringify(st));
+    check('dark '+b.key+' reads against the wall', st.dimContrast>=6 && st.rawP90-st.rawP50>=10,
+      'dimContrast '+st.dimContrast+' raw '+(st.rawP90-st.rawP50));
+    check('dark '+b.key+' still looks like a darkroom', st.mean<=60, 'mean '+st.mean);
+  }
+  for (let i=0;i<beats.length;i++){
+    for (let j=i+1;j<beats.length;j++){
+      const d=frameDiff(darkFrames[i],darkFrames[j]);
+      check('dark '+beats[i].key+' != '+beats[j].key, d>=4, 'diff '+d);
+    }
+  }
+  // the splicer overlay: its whole job is a 1-2% misalignment, so the bench
+  // close-up must keep contrast even when the display is dim
+  state.dark.seen={line:true,bench:true,wall:true};
+  state.dark.depth=0.56; state.dark.open=true; state.dark.v=0.5; state.dark.target=0.72;
+  pctx.clearRect(0,0,PW,PH);
+  drawAndGrab('darkroom');
+  const sp=frameStats([52,44,376,184]);
+  check('splicer text has contrast', sp.rawP99-sp.rawP50>=60 && sp.dimContrast>=10, JSON.stringify(sp));
+  check('splicer panel has edges', sp.rawP90-sp.rawP50>=20, 'p90-p50 '+(sp.rawP90-sp.rawP50));
+
+  // --- corridor: the hall is meant to be black until the viewfinder is up, so
+  // the readable state is lookOn=true. Same rule: highlights + contrast, not mean.
+  state.scene='corridor';
+  state.chapter=5;
+  state.corr={depth:0.24,answered:false,ringAt:0,portrait:false,threadSeen:false,
+    lookOn:true,roomSeen:false,facesSeen:false,nameSeen:false};
+  const corrFrames=[];
+  for (const d of [0.24,0.56,0.9]){
+    state.corr.depth=d;
+    pctx.clearRect(0,0,PW,PH);
+    drawAndGrab('corridor');
+    corrFrames.push(pctx.getImageData(0,0,PW,PH).data.slice());
+    const st=frameStats([0,24,480,222]);
+    // a practical brighter than mid-grey, plus structure above 18% grey that
+    // survives the dim transfer — the hall may be dark, it may not be blank
+    check('corridor depth '+d+' has light to follow',
+      st.rawMax>=110 && st.rawP90>=45 && st.dimContrast>=8, JSON.stringify(st));
+    check('corridor depth '+d+' keeps shapes', st.dimContrast>=4, 'contrast '+st.dimContrast);
+  }
+  check('corridor responds to depth', frameDiff(corrFrames[0],corrFrames[2])>=1.5,
+    'diff '+frameDiff(corrFrames[0],corrFrames[2]));
+  // viewfinder on must not make the hall brighter than the bulb: it is an
+  // overlay, not a light source
+  state.corr.depth=0.56; state.corr.lookOn=false;
+  pctx.clearRect(0,0,PW,PH); drawAndGrab('corridor');
+  const lookOff=frameStats([0,0,PW,PH]);
+  state.corr.lookOn=true;
+  pctx.clearRect(0,0,PW,PH); drawAndGrab('corridor');
+  const lookOn=frameStats([0,0,PW,PH]);
+  check('viewfinder is an overlay, not a lamp', lookOn.rawP99<=lookOff.rawP99+6,
+    'off '+lookOff.rawP99+' on '+lookOn.rawP99);
+
+  // --- subtitles: bone text sits on its own 72% black band. Worst case is the
+  // brightest gameplay frame, so measure against the lit room.
+  state.scene='room';
+  pctx.clearRect(0,0,PW,PH); drawThirdPerson(pctx,state.time);
+  const under=frameStats([PW*0.2,PH*0.78,PW*0.6,PH*0.14]);
+  const bandLum=under.rawP99*0.28;
+  const boneLum=lumOf(0xe8,0xdf,0xc8);
+  const ratio=(Math.max(boneLum,bandLum)+5)/(Math.min(boneLum,bandLum)+5);
+  check('subtitle keeps contrast over the brightest scene', ratio>=4.5,
+    'ratio '+ratio.toFixed(2)+' bg '+bandLum.toFixed(0));
+
+  const el=document.createElement('pre');
+  el.id='lumResult';
+  el.style.cssText='position:fixed;left:8px;top:8px;z-index:9999;background:#000;color:#0f0;font:11px monospace;padding:8px;max-height:90vh;overflow:auto;';
+  el.textContent=JSON.stringify({checks:out,darkStats:darkStats},null,2);
+  document.body.appendChild(el);
+  const bad=out.filter(x=>!x.pass);
+  document.title=(bad.length?'LUM FAIL '+bad.length+'/'+out.length:'LUM PASS '+out.length+'/'+out.length);
+}
+
+// =========================================================
+//  UI LAYOUT AUDIT  (?uitest=1)
+// =========================================================
+// Every HUD line is absolutely positioned inside #stage, which clips with
+// overflow:hidden. A long Chinese sentence (the corridor objective, the tape
+// quiz, an ending paragraph) can therefore be silently cut in half — invisible
+// in a normal playtest, obvious once a player cannot read an instruction.
+// This walks the real UI states, pushes the longest strings the game actually
+// produces into each slot, and fails if anything is clipped, off-stage, or
+// overlapping another line.
+const LONGEST={
+  prompt:['W 前进。看到侧门、遗像、门牌时按住 F 看清；看清门牌后，走到尽头按 E 接电话。',
+    '松开 F 放下 DV　·　W 前进　·　E 查看',
+    '按住 F 看她　/　E 躲　/　R 回看　/　Tab 记录',
+    '拖动重建条对齐　/　Q / E 微调　/　P 分屏'],
+  subtitle:['五张遗像，只有四张有脸。空的那张，别着白胶布。',
+    '电话里：你终于接电话了。别让她抬手。',
+    '你把重建对齐了。那 23 分钟是徐英子补的。'],
+  obj:['W 前进。看到侧门、遗像、门牌时按住 F 看清；看清门牌后，走到尽头按 E 接电话。',
+    '房间被改过。走到香炉/水碗/门框旁，按 F 看取景器，按 L 拍下不对的地方。',
+    '那 23 分钟接回去了。按 L 拍下这一格，再往门那边走，按 E 推门。',
+    '按住 F 在红灯下显影：洗印线、剪辑台、放大机。'],
+  count:['看清 3 / 3　·　距离 100%','第 4 / 4 轮　·　12.0s','拍到 3 / 3　·　DV 电 100%'],
+  end:['她抬起的是另一只手。你碰到的，是徐英子的记忆。三张照片里，站在你身后的人，是徐英子。']
+};
+function layoutFacts(el){
+  if (!el) return null;
+  const cs=getComputedStyle(el);
+  const vis=cs.display!=='none' && cs.visibility!=='hidden' && parseFloat(cs.opacity)>0.01;
+  const r=el.getBoundingClientRect();
+  return {vis,rect:r,
+    clipX:el.scrollWidth-el.clientWidth, clipY:el.scrollHeight-el.clientHeight,
+    font:parseFloat(cs.fontSize)||0};
+}
+// Text is only "clipped" if it cannot be reached: an overflow:auto panel with
+// a scrollbar is a fine answer in a 500 px-tall window, hidden overflow is not.
+function reachable(el,f){
+  if (!f) return false;
+  if (f.clipX>1) return false;
+  if (f.clipY<=1) return true;
+  const oy=getComputedStyle(el).overflowY;
+  return oy==='auto' || oy==='scroll';
+}
+function within(inner,outer,pad=1){
+  return inner.left>=outer.left-pad && inner.right<=outer.right+pad
+    && inner.top>=outer.top-pad && inner.bottom<=outer.bottom+pad;
+}
+function overlap(a,b){
+  return !(a.right<=b.left || b.right<=a.left || a.bottom<=b.top || b.bottom<=a.top);
+}
+async function runUiTest(){
+  const out=[]; const check=(n,c,x='')=>out.push({name:n,pass:!!c,extra:x});
+  const stageR=()=>stage.getBoundingClientRect();
+  // widest strings in the game must render without clipping, in every slot
+  const slots=[['prompt',promptEl],['subtitle',subtitleEl]];
+  startGame(true);
+  state.silent=true;
+  await sleep(220);
+
+  for (const [name,el] of slots){
+    for (const s of LONGEST[name]){
+      el.textContent=s; el.classList.remove('hidden');
+      const f=layoutFacts(el);
+      check(name+' fit '+s.slice(0,6), reachable(el,f), 'clip '+f.clipX+'/'+f.clipY+' "'+s.slice(0,10)+'"');
+      check(name+' inside '+s.slice(0,6), within(f.rect,stageR()), 'rect '+Math.round(f.rect.left)+'..'+Math.round(f.rect.right));
+    }
+    el.classList.add('hidden');
+  }
+  // the two lowest lines must not collide when both are long
+  promptEl.textContent=LONGEST.prompt[1]; promptEl.classList.remove('hidden');
+  subtitleEl.textContent=LONGEST.subtitle[0]; subtitleEl.classList.remove('hidden');
+  const pr=promptEl.getBoundingClientRect(), sr=subtitleEl.getBoundingClientRect();
+  check('subtitleClearOfPrompt', !overlap(sr,pr),
+    'sub '+Math.round(sr.top)+'-'+Math.round(sr.bottom)+' prompt '+Math.round(pr.top)+'-'+Math.round(pr.bottom));
+  promptEl.classList.add('hidden'); subtitleEl.classList.add('hidden');
+
+  // persistent chrome: role plate, button row, control legend, camera meta
+  const chrome=[document.getElementById('role'),document.getElementById('hudRight'),
+    document.getElementById('controls'),camMeta];
+  camMeta.classList.remove('hidden');
+  camMeta.querySelector('#subject').textContent='拍摄对象：谢雨洁';
+  camMeta.querySelector('#filmer').textContent='拍摄者：徐英子';
+  camMeta.querySelector('#tape').textContent='带号：旧带 1999 · 素材';
+  await sleep(30);
+  for (const k of chrome){
+    const cs=getComputedStyle(k);
+    if (cs.display==='none'){
+      // The corner legend is the only chrome allowed to stand down, and only in
+      // windows short enough that it would collide with the subtitle band.
+      check('chrome hidden by design '+k.id, k.id==='controls' && innerHeight<=600,
+        'display:none at vh '+innerHeight);
+      continue;
+    }
+    const f=layoutFacts(k);
+    check('chrome inside '+k.id, within(f.rect,stageR()),
+      Math.round(f.rect.left)+'..'+Math.round(f.rect.right)+' stage '+Math.round(stageR().left)+'..'+Math.round(stageR().right));
+    check('chrome fit '+k.id, reachable(k,f), 'clip '+f.clipX+'/'+f.clipY);
+  }
+  check('hud no collision', !overlap(document.getElementById('role').getBoundingClientRect(),
+    document.getElementById('hudRight').getBoundingClientRect()));
+  camMeta.classList.add('hidden');
+
+  // chapter panel: kicker / name / objective / count
+  chapterEl.classList.remove('hidden');
+  const chapKids=[document.getElementById('chapterKicker'),document.getElementById('chapterName'),
+    document.getElementById('chapterObj'),document.getElementById('chapterCount')];
+  for (let i=0;i<LONGEST.obj.length;i++){
+    chapKids[2].textContent=LONGEST.obj[i];
+    chapKids[3].textContent=LONGEST.count[i];
+    for (const k of chapKids){
+      const f=layoutFacts(k);
+      check('chapter fit '+k.id, reachable(k,f), 'clip '+f.clipX+'/'+f.clipY);
+      check('chapter inside '+k.id, within(f.rect,stageR()));
+    }
+  }
+  check('chapterNoOverlap', !overlap(chapKids[2].getBoundingClientRect(),chapKids[3].getBoundingClientRect()));
+  chapterEl.classList.add('hidden');
+
+  // ritual strip (ch1 HUD) must stay clear of the subtitle band
+  ritualEl.classList.remove('hidden'); updateRitualHUD();
+  await sleep(40);
+  ritualEl.classList.add('hidden');
+
+  // case board: the notebook is the densest screen in the game
+  state.ritual.active=true; state.ritual.done=false;
+  openCase();
+  await sleep(120);
+  const caseR=caseEl.getBoundingClientRect();
+  check('case inside stage', within(caseR,stageR()),
+    'case '+[Math.round(caseR.left),Math.round(caseR.top),Math.round(caseR.right),Math.round(caseR.bottom)]
+    +' stage '+[Math.round(stageR().left),Math.round(stageR().top),Math.round(stageR().right),Math.round(stageR().bottom)]);
+  check('case no scroll', caseEl.scrollHeight<=caseEl.clientHeight+2,
+    'scroll '+caseEl.scrollHeight+'/'+caseEl.clientHeight);
+  closeCase();
+
+  // timeline: marks, recon row, hint
+  state.uncannyDone=true; state.choice=true; state.mismatch=true;
+  startReview();
+  await sleep(150);
+  for (const sel of ['.tlTop','.tlTrack','.tlReconRow','.tlHint']){
+    const k=timelineEl.querySelector(sel);
+    const f=layoutFacts(k);
+    check('timeline inside '+sel, f && within(f.rect,stageR()), f?('clip '+f.clipX+'/'+f.clipY):'missing');
+    check('timeline fit '+sel, f && f.clipX<=1, f?('clip '+f.clipX):'missing');
+  }
+  exitReview();
+  await sleep(80);
+
+  // pause / credits / ending card
+  pauseGame();
+  await sleep(120);
+  const pi=pauseEl.querySelector('.pauseInner');
+  check('pause inside stage', within(pi.getBoundingClientRect(),stageR()));
+  check('pause fit', reachable(pi,layoutFacts(pi)), 'clip '+layoutFacts(pi).clipY);
+  const pbtns=[...pauseEl.querySelectorAll('.pauseBtns button')].filter(b=>b.offsetParent!==null);
+  check('pause buttons present', pbtns.length>=5, 'count '+pbtns.length);
+  let pOverlap=false, pSmall=[];
+  for (let i=0;i<pbtns.length;i++){
+    const a=pbtns[i].getBoundingClientRect();
+    if (a.height<30 || a.width<80) pSmall.push(pbtns[i].id+' '+Math.round(a.width)+'x'+Math.round(a.height));
+    for (let j=i+1;j<pbtns.length;j++){
+      if (overlap(a,pbtns[j].getBoundingClientRect())) pOverlap=true;
+    }
+  }
+  check('pause buttons no overlap', !pOverlap);
+  check('pause buttons hit area', pSmall.length===0, pSmall.join(', '));
+  showCredits('pause');
+  await sleep(120);
+  const ci=creditsEl.querySelector('.creditsInner')||creditsEl.firstElementChild;
+  check('credits inside stage', ci && within(ci.getBoundingClientRect(),stageR()));
+  hideCredits(); resumeGame();
+  await sleep(80);
+
+  endTitle.textContent='她替你摆好了。';
+  endText.textContent=LONGEST.end[0];
+  endEl.classList.remove('hidden');
+  await sleep(80);
+  const ei=endEl.querySelector('.endInner');
+  check('end inside stage', within(ei.getBoundingClientRect(),stageR()),
+    'inner '+Math.round(ei.getBoundingClientRect().top)+'-'+Math.round(ei.getBoundingClientRect().bottom)
+    +' stage '+Math.round(stageR().top)+'-'+Math.round(stageR().bottom));
+  check('end fit', reachable(ei,layoutFacts(ei)),
+    'clip '+layoutFacts(ei).clipX+'/'+layoutFacts(ei).clipY);
+  endEl.classList.add('hidden');
+
+  // title screen at this window size
+  returnToTitle();
+  await sleep(150);
+  const si=startEl.querySelector('.startInner');
+  check('title inside stage', within(si.getBoundingClientRect(),stageR()),
+    'inner '+Math.round(si.getBoundingClientRect().top)+'-'+Math.round(si.getBoundingClientRect().bottom)
+    +' stage '+Math.round(stageR().top)+'-'+Math.round(stageR().bottom));
+  check('title fit', layoutFacts(si).clipX<=1, 'clip '+layoutFacts(si).clipX);
+  check('stage inside viewport', stageR().width<=innerWidth+1 && stageR().height<=innerHeight+1,
+    Math.round(stageR().width)+'x'+Math.round(stageR().height)+' vp '+innerWidth+'x'+innerHeight);
+
+  const el=document.createElement('pre');
+  el.id='uiResult';
+  el.style.cssText='position:fixed;left:8px;top:8px;z-index:9999;background:#000;color:#0f0;font:11px monospace;padding:8px;max-height:90vh;overflow:auto;';
+  el.textContent=JSON.stringify({size:[innerWidth,innerHeight],checks:out},null,2);
+  document.body.appendChild(el);
+  const bad=out.filter(x=>!x.pass);
+  document.title=(bad.length?'UI FAIL '+bad.length+' ':'UI PASS ')+innerWidth+'x'+innerHeight;
 }
 if (params.get('nointro')==='1'){
   startGame(true);
@@ -6105,6 +7451,34 @@ if (params.get('nointro')==='1'){
   if (params.get('reveal')==='1') later(()=>{ state.wx=9.9; state.wy=3.6; state.talked=true; setCamera(true); later(()=>setCamera(false),1200); },400);
   if (params.get('end')==='film') later(()=>{ state.firstCameraDone=true; choose('film'); },700);
   if (params.get('end')==='help') later(()=>{ state.firstCameraDone=true; choose('help'); },700);
+  if (params.get('act2')) later(()=>{
+    state.chapter=5; state.finalPhoto=true; state.scene='corridor';
+    state.corr={depth:1,answered:true,ringAt:0,portrait:true,threadSeen:true,
+      lookOn:false,roomSeen:true,facesSeen:true,nameSeen:true};
+    startDarkroom();
+    later(()=>{
+      const d=params.get('act2');
+      if (d==='line'){ state.dark.depth=0.24; state.dark.seen.line=true; state.dark.lookOn=true; }
+      if (d==='bench'){ state.dark.depth=0.56; state.dark.seen.bench=true; state.dark.lookOn=true; }
+      if (d==='wall'){ state.dark.depth=0.84; state.dark.seen.wall=true; state.dark.lookOn=true; }
+      if (d==='door'){ state.dark.depth=0.92; state.dark.seen={line:true,bench:true,wall:true}; state.dark.split=true; }
+      if (d==='exit'){ state.dark.depth=0.05; state.dark.seen={line:true,bench:true,wall:true}; state.dark.split=true; state.dark.print=true; }
+      if (d==='seen'){ state.dark.seen={line:true,bench:true,wall:true}; state.dark.depth=0.56; }
+      if (d==='splice'){
+        state.dark.seen={line:true,bench:true,wall:true}; state.dark.depth=0.56;
+        state.dark.open=true; state.dark.v=0.5; state.dark.target=0.72;
+      }
+      if (d==='aligned'){
+        state.dark.seen={line:true,bench:true,wall:true}; state.dark.depth=0.56;
+        state.dark.open=true; state.dark.target=0.62; state.dark.v=0.62;
+      }
+      if (d==='split'){ state.dark.split=true; state.dark.seen={line:true,bench:true,wall:true}; state.dark.depth=0.6; }
+      updateChapterHUD();
+      // headless screenshots: rAF is frozen under --virtual-time-budget, so
+      // paint the frame we just configured instead of waiting for one.
+      pctx.clearRect(0,0,PW,PH); drawDarkroom(pctx,state.time);
+    },900);
+  },400);
   if (params.get('take2')==='1') later(()=>{ state.wx=9.9; state.wy=3.6; state.talked=true; state.choice=true; startSecondTake(); },400);
   if (params.get('hand')==='1') later(()=>{
     state.wx=9.9; state.wy=3.6; state.talked=true; state.uncannyDone=true; state.choice=true; state.front=true;
@@ -6168,7 +7542,9 @@ if (params.get('nointro')==='1'){
   if (params.get('corridor')==='1') later(()=>{
     state.chapter=5; state.finalPhoto=true; state.phoneDone=false;
     state.uncannyDone=true; state.talked=true;
-    startCorridor(); state.corr.depth=0.9;
+    startCorridor(); state.corr.depth=params.get('depth')?parseFloat(params.get('depth')):0.9;
+    // ?look=1 raises the corridor viewfinder for screenshots of each beat.
+    if (params.get('look')==='1') later(()=>corridorLookOn(),700);
   },1200);
   if (params.get('bad')==='1') later(()=>{
     state.wx=7.05; state.wy=6.3; state.ritual.active=true; chooseBad();
@@ -6211,13 +7587,47 @@ if (params.get('nointro')==='1'){
   },500);
   const pose=params.get('pose');
   if (pose) later(()=>{ state.dir=pose.toUpperCase(); state.front=false; },600);
-  if (params.get('test')==='1') later(runTest,400);
+  if (params.get('lumtest')==='1'){
+    later(runLumTest,400);
+    const lumDriver=setInterval(()=>{
+      if (/^LUM (PASS|FAIL)/.test(document.title)){ clearInterval(lumDriver); return; }
+      if (!state.started || state.paused) return;
+      state.time+=0.05;
+      tickJobs();
+    },20);
+  }
+  if (params.get('uitest')==='1'){
+    later(runUiTest,400);
+    const uiDriver=setInterval(()=>{
+      if (/^UI (PASS|FAIL)/.test(document.title)){ clearInterval(uiDriver); return; }
+      if (!state.started || state.paused) return;
+      state.time+=0.05;
+      tickJobs();
+    },20);
+  }
+  if (params.get('test')==='1'){
+    later(runTest,400);
+    const testDriver=setInterval(()=>{
+      if (document.title==='TEST PASS' || document.title==='TEST FAIL'){ clearInterval(testDriver); return; }
+      if (!state.started || state.paused) return;
+      state.time+=0.05;
+      tickJobs();
+    },20);
+  }
   // Shelf-chrome screenshots: freeze a real gameplay frame under the overlay.
   if (params.get('shelf')==='pause') later(()=>{
     startGame(true);
     state.wx=9.4; state.wy=3.4; state.talked=true; state.dir='E'; state.front=false;
     prompt(''); pauseGame();
   },900);
+  // Headless dumps/screenshots have no real frame loop, so every `later()`
+  // above would still be pending when the page is captured. ?advance=<sec>
+  // fast-forwards the game clock (jobs only, no walking) so a dev jump param
+  // actually lands on screen.
+  if (params.get('advance')){
+    const secs=Math.max(0,Math.min(180,parseFloat(params.get('advance'))||0));
+    for (let t=0;t<secs;t+=0.1){ state.time+=0.1; tickJobs(); }
+  }
   if (params.get('shelf')==='credits') later(()=>{ showCredits('title'); },500);
   if (params.get('shelf')==='pausecredits') later(()=>{
     startGame(true);
@@ -6229,6 +7639,66 @@ window.__jiThird={
   audio:{ playCue, startAmbience, stopAmbience },
   video:{ element:dvVideo, sources:VIDEO_SOURCES, isReady:()=>videoReady, isActive:()=>stage.classList.contains('videoActive') },
   state, setCamera, interact, choose, startGame, runTest,
-  drawXie, drawThirdPerson, drawIsoTable, drawIsoOldWoman
+  drawXie, drawThirdPerson, drawIsoTable, drawIsoOldWoman,
+  // raw render surfaces for offline capture tools (dev/trailer)
+  render:{ pctx, PW, PH, cctx, CW, CH, pixelCanvas:document.getElementById('pixel'),
+    cameraCanvas:document.getElementById('camera'),
+    drawThirdPerson, drawDarkroom, drawCorridor, drawReview, drawSplicer,
+    drawCameraOverlay, renderCameraPixel },
+  // --- dev / simulated-player surface ---
+  setFuzz(on){ FUZZ_ACTIVE=!!on; },
+  keys, tickJobs, updateBattery, updateHide, updateCorridor, updateReviewKind, advanceMovement,
+  commitRitual, takePhoto, completeCameraScan, takeAnomalyPhoto, takeFinalPhoto,
+  startChapter, startReview, exitReview, reviewPick, stepLookFrame, setReconOffset,
+  toggleReviewSplit, raiseHand, answerPhone, startCorridor, corridorInteract,
+  startDarkroom, updateDarkroom, darkLookOn, darkLookOff, darkInteract,
+  spliceAdjust, spliceCommit, closeSplicer, finishDarkroom, darkPrint,
+  pauseGame, resumeGame, toggleMute, toggleFlashSafe, returnToTitle,
+  openCase, closeCase, currentTake, photosAll, blocked, nearWoman, nearDoor,
+  RITUAL_TAKES, RITUAL_TRUE, HIDE_SPOTS, OLD, REVIEW_QUIZ,
+  // what a sighted player can actually read on screen (null when not fuzzing)
+  ui:{ get:()=>FUZZ_UI, caseText:()=>caseEl?caseEl.textContent:'' },
+  updateScanProgress, setScanClock(fn){ scanClock=fn||null; },
+  probe(){ return {scanStart:state.scanStart,scanT:state.scanT,scanNow:scanNow(),
+    takes:state.takes,silent:state.silent,cam:state.camera,bat:state.battery,
+    ended:state.ended,ending:state.ending,scene:state.scene,ch:state.chapter,
+    started:state.started,paused:state.paused,trans:state.transition,
+    rev:!!state.review,revKind:state.reviewKind||'',revPos:+(state.reviewPos||0).toFixed(2),
+    caseOpen:state.caseOpen,lock:state.inputLock,stime:+state.time.toFixed(1),
+    frameGate:!!state.ch3FrameGate,frameOk:!!state.ch3FrameOk}; },
 };
+// Dev-only simulated-player harness. Not part of normal play: the script is
+// only fetched when ?sim= is present, and dev/ is excluded from releases.
+const simParam=params.get('sim');
+if (simParam){
+  const s=document.createElement('script');
+  s.src='dev/sim/player_sim.js';
+  s.onerror=()=>{ document.title='SIM FAIL: harness missing'; };
+  document.body.appendChild(s);
+}
+// Online playtest recorder (?rec=1): keys, on-screen text, state diffs and an
+// optional local screen recording. Shipped only with the beta deploy, never in
+// the release zip.
+if (params.get('rec')){
+  const rs=document.createElement('script');
+  rs.src='playtest/recorder.js';
+  // the release zip does not ship playtest/: fail quietly there
+  rs.onerror=()=>{ if (window.console) console.warn('playtest recorder not bundled (release build)'); };
+  document.body.appendChild(rs);
+}
+// Offline store-trailer capture (?trailer=1): dev-only, scripted shots rendered
+// into a separate 1280x720 canvas and posted back to dev/trailer/run.mjs.
+if (params.get('trailer')){
+  const ts=document.createElement('script');
+  ts.src='dev/trailer/trailer.js';
+  ts.onerror=()=>{ document.title='TRAILER FAIL: script missing'; };
+  document.body.appendChild(ts);
+}
+const naiveParam=params.get('naive');
+if (naiveParam){
+  const s=document.createElement('script');
+  s.src='dev/sim/naive_sim.js';
+  s.onerror=()=>{ document.title='NAIVE FAIL: harness missing'; };
+  document.body.appendChild(s);
+}
 })();

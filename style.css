@@ -1,4 +1,9 @@
 :root{
+  /* HUD text scale. game.js sets this from the stage height so the interface
+     keeps the same visual weight from a 720p window to a 1440p monitor: the
+     pixel art scales with the stage, and 10 px HUD type would otherwise turn
+     into a speck on a 2560-wide canvas. 1 = the 720p reference. */
+  --u:1;
   --ink:#070806;
   --paper:#d9cfb8;
   --bone:#e8dfc8;
@@ -118,13 +123,14 @@ canvas{position:absolute;display:block;}
   padding:6px 10px;background:rgba(8,10,8,.55);
   border-left:2px solid var(--red);backdrop-filter:blur(2px);
 }
-#roleName{font:15px/1 "PingFang SC","Courier New",monospace;letter-spacing:.16em;color:var(--bone);}
-#mode{font:10px/1 "Courier New",monospace;letter-spacing:.2em;color:var(--dim);}
+#roleName{font-size:calc(15px*var(--u));line-height:1;font-family:"PingFang SC","Courier New",monospace;letter-spacing:.16em;color:var(--bone);}
+#mode{font-size:calc(10px*var(--u));line-height:1;font-family:"Courier New",monospace;letter-spacing:.2em;color:var(--dim);}
 #hudRight{display:flex;gap:8px;pointer-events:auto;}
 .hudBtn{
   cursor:pointer;background:rgba(8,10,8,.55);
   border:1px solid rgba(216,201,168,.25);color:var(--paper);
-  font:10px/1 "Courier New",monospace;letter-spacing:.12em;padding:7px 9px;
+  font-size:calc(10px*var(--u));line-height:1;font-family:"Courier New",monospace;
+  letter-spacing:.12em;padding:calc(7px*var(--u)) calc(9px*var(--u));
   transition:border-color .15s,background .15s;
 }
 .hudBtn:hover{border-color:rgba(216,201,168,.6);background:rgba(20,22,17,.8);}
@@ -139,14 +145,14 @@ canvas{position:absolute;display:block;}
   backdrop-filter:blur(3px);
   transition:opacity .2s;
 }
-.tlTop{display:flex;justify-content:space-between;font:11px/1 "Courier New",monospace;letter-spacing:.12em;color:var(--dim);}
+.tlTop{display:flex;justify-content:space-between;font-size:calc(11px*var(--u));line-height:1;font-family:"Courier New",monospace;letter-spacing:.12em;color:var(--dim);}
 #tlTime{color:var(--bone);}
 .tlTrack{position:relative;height:16px;margin-top:7px;background:rgba(216,201,168,.10);}
 .tlGap{position:absolute;left:20%;width:40%;top:6px;height:4px;background:rgba(142,42,34,.55);}
 .tlMark{position:absolute;top:0;height:16px;border-left:1px solid rgba(216,201,168,.38);}
-.tlMark span{position:absolute;top:17px;left:2px; font:9px/1 "Courier New",monospace;color:rgba(216,201,168,.38);white-space:nowrap;}
+.tlMark span{position:absolute;top:calc(17px*var(--u));left:2px;font-size:calc(9px*var(--u));line-height:1;font-family:"Courier New",monospace;color:rgba(216,201,168,.38);white-space:nowrap;}
 .tlHead{position:absolute;top:-2px;height:20px;width:2px;background:var(--bone);box-shadow:0 0 8px rgba(232,223,200,.7);}
-.tlHint{margin-top:18px;color:rgba(216,201,168,.45);font:10px/1.4 "Courier New",monospace;letter-spacing:.06em;}
+.tlHint{margin-top:calc(18px*var(--u));color:rgba(216,201,168,.45);font-size:calc(10px*var(--u));line-height:1.4;font-family:"Courier New",monospace;letter-spacing:.06em;}
 
 /* camera meta */
 #camMeta{
@@ -157,9 +163,9 @@ canvas{position:absolute;display:block;}
   pointer-events:none;
   transition:opacity .2s;
 }
-#tape{font:10px/1.6 "PingFang SC","Courier New",monospace;letter-spacing:.12em;color:rgba(216,201,168,.55);margin-top:3px;}
-#subject{font:12px/1.5 "PingFang SC","Courier New",monospace;letter-spacing:.12em;color:var(--bone);}
-#filmer{margin-top:4px;font:12px/1.5 "PingFang SC","Courier New",monospace;letter-spacing:.12em;color:var(--film);opacity:0;transition:opacity .6s ease;}
+#tape{font-size:calc(10px*var(--u));line-height:1.6;font-family:"PingFang SC","Courier New",monospace;letter-spacing:.12em;color:rgba(216,201,168,.55);margin-top:3px;}
+#subject{font-size:calc(12px*var(--u));line-height:1.5;font-family:"PingFang SC","Courier New",monospace;letter-spacing:.12em;color:var(--bone);}
+#filmer{margin-top:4px;font-size:calc(12px*var(--u));line-height:1.5;font-family:"PingFang SC","Courier New",monospace;letter-spacing:.12em;color:var(--film);opacity:0;transition:opacity .6s ease;}
 #filmer.show{opacity:1;}
 
 /* text */
@@ -167,7 +173,8 @@ canvas{position:absolute;display:block;}
   position:absolute;left:50%;bottom:9%;transform:translateX(-50%);
   z-index:14;max-width:78%;padding:9px 16px;
   background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.72) 18%,rgba(0,0,0,.72) 82%,rgba(0,0,0,0));
-  color:var(--bone);font:15px/1.65 "PingFang SC","Courier New",monospace;
+  color:var(--bone);font-size:calc(15px*var(--u));line-height:1.65;
+  font-family:"PingFang SC","Courier New",monospace;
   letter-spacing:.04em;text-align:center;text-shadow:0 1px 3px #000,0 0 18px rgba(0,0,0,.9);
   transition:opacity .22s;pointer-events:none;
 }
@@ -175,15 +182,16 @@ canvas{position:absolute;display:block;}
   position:absolute;left:50%;bottom:17%;transform:translateX(-50%);
   z-index:14;padding:6px 12px;
   border:1px solid rgba(216,201,168,.28);background:rgba(6,7,5,.72);
-  color:rgba(232,223,200,.85);font:11px/1.4 "Courier New","PingFang SC",monospace;
+  color:rgba(232,223,200,.85);font-size:calc(11px*var(--u));line-height:1.4;
+  font-family:"Courier New","PingFang SC",monospace;
   letter-spacing:.12em;white-space:nowrap;pointer-events:none;
   transition:opacity .2s;
 }
 #controls{
   position:absolute;left:50%;bottom:2%;transform:translateX(-50%);
   z-index:10;color:rgba(216,201,168,.36);
-  font:10px/1.4 "Courier New",monospace;letter-spacing:.08em;
-  white-space:nowrap;pointer-events:none;
+  font-size:calc(10px*var(--u));line-height:1.4;font-family:"Courier New",monospace;
+  letter-spacing:.08em;white-space:nowrap;pointer-events:none;
 }
 
 /* screens */
@@ -213,7 +221,7 @@ canvas{position:absolute;display:block;}
   background:rgba(80,16,12,.18);
 }
 .startLine,.endLine{width:46px;height:1px;background:rgba(216,201,168,.35);margin:24px auto;}
-.startText{color:rgba(232,223,200,.78);font:13px/1.9 "PingFang SC",serif;letter-spacing:.08em;}
+.startText{color:rgba(232,223,200,.78);font-size:calc(13px*min(var(--u),1.5));line-height:1.9;font-family:"PingFang SC",serif;letter-spacing:.08em;}
 .startText.dim{color:rgba(216,201,168,.45);margin-top:9px;}
 .warn{margin-top:18px;color:rgba(192,74,56,.8);font:10px/1.5 "Courier New",monospace;letter-spacing:.12em;}
 #startBtn,#restartBtn{
@@ -231,7 +239,7 @@ canvas{position:absolute;display:block;}
 }
 
 .endTitle{font:clamp(34px,5vw,58px)/1.1 "Songti SC","STSong",serif;color:#f6efdd;letter-spacing:.18em;text-shadow:0 2px 24px rgba(0,0,0,.85);}
-.endText{margin-top:16px;color:rgba(242,235,218,.92);font:14px/2 "PingFang SC",serif;letter-spacing:.06em;}
+.endText{margin-top:16px;color:rgba(242,235,218,.92);font-size:calc(14px*min(var(--u),1.5));line-height:2;font-family:"PingFang SC",serif;letter-spacing:.06em;}
 .endText.dim{color:rgba(216,201,168,.62);}
 .endNote{margin-top:18px;color:rgba(216,201,168,.48);font:10px/1.6 "Courier New",monospace;letter-spacing:.08em;}
 
@@ -262,7 +270,7 @@ body.clean #fade{display:none !important;}
 #stage.reviewing #prompt{bottom:27%;}
 #stage.reviewing #controls{opacity:0;}
 .tlReconRow{display:flex;align-items:center;gap:8px;margin-top:16px;}
-.tlReconLabel{width:24px;flex:none;font:9px/1 "Courier New",monospace;color:var(--film);letter-spacing:.08em;}
+.tlReconLabel{width:calc(24px*var(--u));flex:none;font-size:calc(9px*var(--u));line-height:1;font-family:"Courier New",monospace;color:var(--film);letter-spacing:.08em;}
 .tlReconTrack{position:relative;flex:1;height:14px;background:rgba(159,183,167,.08);}
 .tlReconBar{position:absolute;top:0;height:14px;cursor:ew-resize;touch-action:none;
   background:rgba(159,183,167,.16);border:1px solid rgba(159,183,167,.32);}
@@ -271,7 +279,7 @@ body.clean #fade{display:none !important;}
 .tlReconBar.aligned .tlReconGap{background:rgba(192,74,56,.58);box-shadow:0 0 10px rgba(192,74,56,.35);}
 .tlReconMark{position:absolute;top:-11px;transform:translateX(-50%);font:9px/1 "Courier New",monospace;
   color:rgba(159,183,167,.65);white-space:nowrap;}
-.tlDelta{width:112px;flex:none;text-align:right;font:9px/1 "Courier New",monospace;color:var(--dim);letter-spacing:.04em;}
+.tlDelta{width:calc(112px*var(--u));flex:none;text-align:right;font-size:calc(9px*var(--u));line-height:1;font-family:"Courier New",monospace;color:var(--dim);letter-spacing:.04em;}
 
 
 /* ---- key art start screen ---- */
@@ -331,29 +339,43 @@ body.clean #fade{display:none !important;}
   font-family:"Songti SC","STSong",serif;font-weight:400;
   color:#f4ecda;margin:12px 0 22px;letter-spacing:.12em;
 }
-.creditsTitle{font-size:36px;}
-.pauseTitle{font-size:64px;line-height:1;color:#d84a38;margin:14px 0 6px;}
+.creditsTitle{font-size:calc(36px*min(var(--u),1.6));}
+.pauseTitle{font-size:calc(64px*min(var(--u),1.6));line-height:1;color:#d84a38;margin:14px 0 6px;}
 .creditsGrid{display:grid;grid-template-columns:1fr 1fr;gap:18px 36px;}
 .creditsGrid div{display:flex;flex-direction:column;gap:5px;border-left:1px solid rgba(216,201,168,.18);padding-left:14px;}
-.creditsGrid b{font:11px/1.4 "Courier New",monospace;letter-spacing:.18em;color:rgba(226,214,188,.82);font-weight:400;}
-.creditsGrid span{font:13px/1.75 "PingFang SC",sans-serif;color:rgba(246,240,226,.97);}
-.creditsMeta{display:flex;gap:18px;flex-wrap:wrap;margin:-6px 0 22px;font:10px/1.6 "Courier New",monospace;color:rgba(159,183,167,.75);letter-spacing:.1em;}
-.creditsNote{margin:26px 0 12px;font:11.5px/1.8 "PingFang SC",sans-serif;color:rgba(196,186,164,.88);}
+.creditsGrid b{font-size:calc(11px*min(var(--u),1.6));line-height:1.4;font-family:"Courier New",monospace;letter-spacing:.18em;color:rgba(226,214,188,.82);font-weight:400;}
+.creditsGrid span{font-size:calc(13px*min(var(--u),1.6));line-height:1.75;font-family:"PingFang SC",sans-serif;color:rgba(246,240,226,.97);}
+.creditsMeta{display:flex;gap:18px;flex-wrap:wrap;margin:-6px 0 22px;font-size:calc(10px*min(var(--u),1.6));line-height:1.6;font-family:"Courier New",monospace;color:rgba(159,183,167,.75);letter-spacing:.1em;}
+.creditsNote{margin:26px 0 12px;font-size:calc(11.5px*min(var(--u),1.6));line-height:1.8;font-family:"PingFang SC",sans-serif;color:rgba(196,186,164,.88);}
 #pause{background:rgba(4,5,4,.56);backdrop-filter:blur(2px);}
 .pauseBtns{display:flex;flex-direction:column;gap:9px;margin-top:22px;align-items:stretch;}
 .pauseBtns button{
   width:100%;min-width:0;text-align:left;cursor:pointer;
   background:transparent;border:1px solid rgba(216,201,168,.28);color:#f0e8d6;
-  font:13px/1 "PingFang SC","Courier New",monospace;letter-spacing:.2em;
-  padding:14px 18px;transition:background .18s,border-color .18s,color .18s;
+  font-size:calc(13px*min(var(--u),1.5));line-height:1;font-family:"PingFang SC","Courier New",monospace;letter-spacing:.2em;
+  padding:calc(14px*min(var(--u),1.5)) calc(18px*min(var(--u),1.5));transition:background .18s,border-color .18s,color .18s;
 }
 .pauseBtns button:hover{border-color:rgba(216,201,168,.7);background:rgba(216,201,168,.06);}
 .pauseBtns #resumeBtn{
   background:rgba(142,42,34,.16);border-color:rgba(192,74,56,.62);color:#f4e8d2;
 }
 .pauseBtns #resumeBtn:hover{background:rgba(142,42,34,.3);border-color:var(--red-bright);}
-.pauseNote{margin-top:18px;font:10px/1.8 "Courier New",monospace;color:rgba(160,152,132,.7);letter-spacing:.06em;}
+.pauseNote{margin-top:18px;font-size:calc(10px*min(var(--u),1.5));line-height:1.8;font-family:"Courier New",monospace;color:rgba(160,152,132,.7);letter-spacing:.06em;}
 body.paused #pixel{filter:saturate(.72) brightness(.84);}
+/* Short windows (720p windowed, laptops with a dock): the pause panel is the
+   tallest chrome in the game and used to be clipped by #stage's overflow.
+   Two columns plus tighter type keeps every button reachable without a
+   scrollbar, which is what a player reaching for "继续" actually needs. */
+@media (max-height:720px){
+  #pause .pauseInner{padding:22px 26px;}
+  .pauseTitle{font-size:44px;margin:10px 0 4px;}
+  .pauseBtns{
+    display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:14px;
+  }
+  .pauseBtns #resumeBtn{grid-column:1 / -1;}
+  .pauseBtns button{padding:11px 14px;font-size:12px;letter-spacing:.14em;text-align:center;}
+  .pauseNote{margin-top:10px;font-size:9px;line-height:1.6;}
+}
 @media (max-width:640px){
   #credits .creditsInner{padding:26px 22px;}
   #pause .pauseInner{padding:26px 22px;}
@@ -413,23 +435,23 @@ button:focus-visible{
 
 /* Ritual tracker: a small diegetic checklist, not a quest log. */
 #ritual{
-  position:absolute;left:2.2%;top:8.4%;z-index:12;width:226px;
-  padding:8px 10px 9px;background:rgba(7,8,6,.72);
+  position:absolute;left:2.2%;top:8.4%;z-index:12;width:calc(226px*var(--u));
+  padding:calc(8px*var(--u)) calc(10px*var(--u)) calc(9px*var(--u));background:rgba(7,8,6,.72);
   border-left:2px solid rgba(192,74,56,.75);
   backdrop-filter:blur(2px);pointer-events:none;
   font-family:"Courier New","PingFang SC",monospace;
 }
 .ritualHead{
   display:flex;justify-content:space-between;align-items:baseline;
-  color:rgba(216,201,168,.62);font-size:9px;letter-spacing:.2em;
+  color:rgba(216,201,168,.62);font-size:calc(9px*var(--u));letter-spacing:.2em;
   margin-bottom:7px;
 }
-#ritualNote{color:rgba(192,74,56,.85);font-size:9px;letter-spacing:.08em;}
+#ritualNote{color:rgba(192,74,56,.85);font-size:calc(9px*var(--u));letter-spacing:.08em;}
 .ritualRow{display:flex;gap:6px;}
 .ritualItem{
-  flex:1;text-align:center;padding:5px 2px;
+  flex:1;text-align:center;padding:calc(5px*var(--u)) 2px;
   border:1px solid rgba(216,201,168,.18);
-  color:rgba(232,223,200,.7);font-size:10px;letter-spacing:.1em;
+  color:rgba(232,223,200,.7);font-size:calc(10px*var(--u));letter-spacing:.1em;
 }
 .ritualItem b{color:rgba(232,223,200,.9);font-weight:400;margin-left:2px;}
 .ritualItem.ok{
@@ -437,18 +459,18 @@ button:focus-visible{
   color:#e8dfc8;background:rgba(142,42,34,.16);
 }
 .ritualItem.ok b{color:#f0b38a;}
-.ritualHint{margin-top:6px;color:rgba(216,201,168,.32);font-size:8px;letter-spacing:.1em;}
+.ritualHint{margin-top:calc(6px*var(--u));color:rgba(216,201,168,.32);font-size:calc(8px*var(--u));letter-spacing:.1em;}
 #chapterHud{
-  position:absolute;left:2.2%;top:8.4%;z-index:12;width:226px;
-  padding:9px 11px 10px;background:rgba(7,8,6,.74);
+  position:absolute;left:2.2%;top:8.4%;z-index:12;width:calc(226px*var(--u));
+  padding:calc(9px*var(--u)) calc(11px*var(--u)) calc(10px*var(--u));background:rgba(7,8,6,.74);
   border-left:2px solid rgba(192,74,56,.8);
   backdrop-filter:blur(2px);pointer-events:none;
   font-family:"Courier New","PingFang SC",monospace;
 }
-.chapterKicker{font:9px/1.2 "Courier New",monospace;letter-spacing:.22em;color:rgba(192,74,56,.9);}
-.chapterName{font-family:"Songti SC","STSong",serif;font-size:20px;color:#f0e7d2;margin:5px 0 6px;letter-spacing:.14em;}
-.chapterObj{font-size:10px;line-height:1.65;color:rgba(216,201,168,.6);}
-.chapterCount{margin-top:6px;font-size:10px;letter-spacing:.12em;color:rgba(216,201,168,.42);}
+.chapterKicker{font-size:calc(9px*var(--u));line-height:1.2;font-family:"Courier New",monospace;letter-spacing:.22em;color:rgba(192,74,56,.9);}
+.chapterName{font-family:"Songti SC","STSong",serif;font-size:calc(20px*var(--u));color:#f0e7d2;margin:calc(5px*var(--u)) 0 calc(6px*var(--u));letter-spacing:.14em;}
+.chapterObj{font-size:calc(10px*var(--u));line-height:1.65;color:rgba(216,201,168,.6);}
+.chapterCount{margin-top:calc(6px*var(--u));font-size:calc(10px*var(--u));letter-spacing:.12em;color:rgba(216,201,168,.42);}
 body.clean #chapterHud,
 body.paused #chapterHud,
 body.ended #chapterHud,
@@ -468,12 +490,12 @@ body.ended #ritual,
   border:1px solid rgba(216,201,168,.26);padding:34px 38px 28px;
   box-shadow:0 30px 90px rgba(0,0,0,.85),inset 0 1px 0 rgba(232,223,200,.05);
 }
-.caseKicker{font:10px/1 "Courier New",monospace;letter-spacing:.28em;color:rgba(192,154,90,.8);}
-.caseTitle{font-family:"Songti SC","STSong",serif;font-weight:400;color:#f4ecda;font-size:34px;margin:10px 0 20px;letter-spacing:.14em;}
+.caseKicker{font-size:calc(10px*min(var(--u),1.5));line-height:1;font-family:"Courier New",monospace;letter-spacing:.28em;color:rgba(192,154,90,.8);}
+.caseTitle{font-family:"Songti SC","STSong",serif;font-weight:400;color:#f4ecda;font-size:calc(34px*min(var(--u),1.4));margin:10px 0 20px;letter-spacing:.14em;}
 .caseGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
 .caseCol{border-left:1px solid rgba(216,201,168,.18);padding-left:14px;min-width:0;}
-.caseCol h3{font:11px/1.4 "Courier New",monospace;letter-spacing:.18em;color:rgba(216,201,168,.6);font-weight:400;margin-bottom:10px;}
-.caseBody{font:12px/1.9 "PingFang SC","Courier New",monospace;color:rgba(240,232,214,.9);}
+.caseCol h3{font-size:calc(11px*min(var(--u),1.45));line-height:1.4;font-family:"Courier New",monospace;letter-spacing:.18em;color:rgba(216,201,168,.6);font-weight:400;margin-bottom:10px;}
+.caseBody{font-size:calc(12px*min(var(--u),1.45));line-height:1.9;font-family:"PingFang SC","Courier New",monospace;color:rgba(240,232,214,.9);}
 .caseBody .row{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed rgba(216,201,168,.12);padding:3px 0;}
 .caseBody .row span:first-child{color:rgba(216,201,168,.6);}
 .caseBody .row.unknown span:last-child{color:rgba(192,74,56,.85);}
@@ -481,7 +503,7 @@ body.ended #ritual,
 .caseBody .take b{font-weight:400;color:rgba(216,201,168,.7);}
 .caseBody .take.now{background:rgba(142,42,34,.16);padding-left:6px;margin-left:-6px;}
 .caseBody .note{margin-top:10px;color:rgba(192,154,90,.78);font-size:11px;}
-.caseNow{margin-top:20px;padding:10px 12px;border-top:1px solid rgba(216,201,168,.16);border-bottom:1px solid rgba(216,201,168,.16);font:12px/1.6 "Courier New","PingFang SC",monospace;color:#e8dfc8;letter-spacing:.08em;}
+.caseNow{margin-top:20px;padding:10px 12px;border-top:1px solid rgba(216,201,168,.16);border-bottom:1px solid rgba(216,201,168,.16);font-size:calc(12px*min(var(--u),1.45));line-height:1.6;font-family:"Courier New","PingFang SC",monospace;color:#e8dfc8;letter-spacing:.08em;}
 .caseNow b{color:#d84a38;font-weight:400;}
 .caseNow .scanLine{display:inline-block;margin-top:6px;color:rgba(150,220,208,.8);font-size:11px;letter-spacing:.08em;}
 .caseHint{margin:12px 0 16px;font:10px/1.6 "Courier New",monospace;color:rgba(216,201,168,.42);letter-spacing:.08em;}
@@ -491,5 +513,47 @@ body.caseOpen #pixel{filter:saturate(.65) brightness(.7);}
   .caseGrid{grid-template-columns:1fr;}
 }
 
-.ritualBattery{margin-top:7px;font:9px/1.4 "Courier New",monospace;letter-spacing:.08em;color:rgba(216,201,168,.38);}
+.ritualBattery{margin-top:calc(7px*var(--u));font-size:calc(9px*var(--u));line-height:1.4;font-family:"Courier New",monospace;letter-spacing:.08em;color:rgba(216,201,168,.38);}
 .ritualBattery.low{color:rgba(192,74,56,.9);}
+
+/* keyboard accessibility: the game is fully playable without a mouse */
+button:focus-visible{outline:2px solid rgba(233,214,170,.85);outline-offset:2px;}
+
+/* Very short windows (small laptop windows, browser at 500–600 px tall).
+   The 16:9 stage is only ~350–580 px high here, so the console legend, the
+   long title panel and the pause menu need to give up space instead of being
+   clipped by #stage. Nothing is removed that a player needs to finish. */
+@media (max-height:600px){
+  #controls{display:none;}
+  #subtitle{font-size:11px;line-height:1.5;bottom:5%;max-width:88%;padding:6px 12px;}
+  #prompt{bottom:25%;font-size:10px;padding:4px 9px;}
+  #start .startKicker{margin-bottom:10px;letter-spacing:.3em;}
+  #start .startSub{font-size:18px;margin-top:16px;letter-spacing:.2em;}
+  .startLine,.endLine{margin:14px auto;}
+  .startText{font-size:11.5px;line-height:1.7;}
+  .startCtrl{display:none;}
+  .warn{margin-top:10px;font-size:9px;}
+  .titleBtns,.endBtns{margin-top:12px;gap:8px;}
+  #startBtn,#restartBtn{padding:12px 30px;font-size:13px;}
+  .ghostBtn{padding:8px 12px;min-height:34px;font-size:11px;}
+  .endKicker{margin-bottom:12px;}
+  .endTitle{font-size:30px;}
+  .endText{font-size:12px;line-height:1.7;margin-top:10px;}
+  .endNote{margin-top:10px;font-size:9px;line-height:1.5;}
+  #pause .pauseInner{padding:16px 20px;max-height:94%;}
+  .pauseTitle{font-size:34px;}
+  .pauseBtns{margin-top:10px;gap:6px;}
+  .pauseBtns button{padding:9px 12px;font-size:11px;}
+  .pauseNote{margin-top:8px;font-size:8.5px;}
+  #case .caseInner{padding:18px 16px;max-height:94%;}
+  .caseTitle{font-size:24px;margin:6px 0 10px;}
+  .caseBody{font-size:11px;line-height:1.7;}
+  .caseHint{margin:8px 0 10px;}
+  #credits .creditsInner{padding:20px 22px;max-height:94%;}
+  .creditsTitle{font-size:26px;margin:8px 0 12px;}
+  .creditsGrid{gap:10px 20px;}
+  .creditsGrid span{font-size:11.5px;line-height:1.6;}
+  .creditsGrid b{font-size:10px;}
+  .creditsNote{margin:14px 0 8px;font-size:10px;}
+  .creditsMeta{margin:0 0 12px;font-size:9px;}
+}
