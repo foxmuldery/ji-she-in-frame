@@ -6835,20 +6835,23 @@ if (params.get('vfreeze')){
 }
 if (params.get('audiodbg')==='1'){
   setTimeout(()=>{
-    const rows=[];
+    const rows=[], els=[];
     for (const [key,file] of Object.entries(AUDIO_FILES)){
       const a=new Audio(AUDIO_DIR+file);
       a.preload='auto';
       const row={key,file,readyState:-1,error:null,duration:null};
-      rows.push(row);
+      rows.push(row); els.push(a);
       a.addEventListener('error',()=>{ row.error=a.error?a.error.code:'err'; });
       try{ a.load(); }catch(e){ row.error='load'; }
-      setTimeout(()=>{
-        row.readyState=a.readyState;
-        row.duration=isFinite(a.duration)?Number(a.duration.toFixed(2)):null;
-      },1700);
     }
-    setTimeout(()=>{
+    // Poll instead of waiting a fixed 1.7 s: 34 decodes on a cold headless
+    // profile can take longer, and the old fixed delay produced AUDIO FAIL
+    // flakes that had nothing to do with the audio.
+    const report=()=>{
+      rows.forEach((r,i)=>{
+        r.readyState=els[i].readyState;
+        r.duration=isFinite(els[i].duration)?Number(els[i].duration.toFixed(2)):null;
+      });
       const el=document.createElement('pre');
       el.id='audioDebug';
       el.style.cssText='position:fixed;right:8px;bottom:8px;z-index:9999;background:#000;color:#0f0;font:10px monospace;padding:6px;max-width:46vw;white-space:pre-wrap;';
@@ -6856,7 +6859,18 @@ if (params.get('audiodbg')==='1'){
       el.textContent=JSON.stringify({total:rows.length,bad:bad.length,badRows:bad,rows},null,1);
       document.body.appendChild(el);
       document.title=bad.length?'AUDIO FAIL':'AUDIO PASS';
-    },2300);
+    };
+    const t0=performance.now();
+    const settle=()=>{
+      rows.forEach((r,i)=>{
+        r.readyState=els[i].readyState;
+        r.duration=isFinite(els[i].duration)?Number(els[i].duration.toFixed(2)):null;
+      });
+      const pending=rows.some(r=>r.readyState<2&&!r.error);
+      if (!pending || performance.now()-t0>9000) return report();
+      setTimeout(settle,150);
+    };
+    settle();
   },500);
 }
 if (params.get('videodbg')==='1'){

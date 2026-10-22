@@ -287,7 +287,7 @@ python3 -m http.server 8000
 - 零知识模拟新增 `?pace=human`（按字幕长度停顿），100 局 100% 通关，中位 8:24（2026-10-22 复测）。
 - 发布脚本 `dev/package.sh`：只打运行时文件，输出 `dist/ji-she-in-frame-v2.10.1.zip` + SHA-256；包内 `?test=1` / `?audiodbg=1` 均通过。
 - 解包冒烟（`verify.sh` 自动）：把 `dist/*.zip` 解到 `/tmp` 后直接开 `file://`，自测 72/72，并校验 `game.js` 引用的每个 `assets/…` 都在包内——验的是玩家真正下载到的那个文件，而不是仓库。
-- 发布审计 `dev/release_audit.mjs`（`verify.sh` 末尾自动跑）：版本号四处一致、zip 比源码新且含当前 `game.js`、zip 不含开发/生成源/内测钩子、**每个随包素材都能在 MANIFEST / CREDITS / RIGHTS 找到出处**、校验和匹配、预告片规格合规。
+- 发布审计 `dev/release_audit.mjs`（`verify.sh` 末尾自动跑）：版本号四处一致、zip 比源码新且含当前 `game.js`、zip 不含开发/生成源/内测钩子、**每个随包素材都能在 MANIFEST / CREDITS / RIGHTS 找到出处；**代码里 playMedia/playCue 点到的每个 cue 都在 AUDIO_FILES 里、且文件真的存在**、校验和匹配、预告片规格合规。
 
 **v2.8 · audit hotfix（2026-10-21）**
 

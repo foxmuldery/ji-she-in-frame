@@ -155,7 +155,31 @@ if (existsSync(join(ROOT,'store/itch_description.html'))){
   check('store description states content warnings', /内容提示/.test(html));
 }
 
-// ---- 8. docs that stores and testers actually read -----------------------
+// ---- 8. every cue the code asks for is actually in the kit ---------------
+// playMedia()/playCue() fail silently on an unknown key, so a renamed or
+// forgotten file would just make a beat quiet and no test would notice.
+{
+  const game=read('game.js');
+  const filesBlock=game.match(/const AUDIO_FILES\s*=\s*\{([\s\S]*?)\n\};/);
+  check('game.js declares AUDIO_FILES', !!filesBlock);
+  if (filesBlock){
+    const defined=new Map();
+    for (const m of filesBlock[1].matchAll(/([A-Za-z0-9_]+)\s*:\s*'([^']+)'/g)) defined.set(m[1],m[2]);
+    const used=new Set();
+    for (const m of game.matchAll(/playMedia\(\s*'([A-Za-z0-9_]+)'/g)) used.add(m[1]);
+    for (const m of game.matchAll(/tracks\s*:\s*\[([\s\S]*?)\]/g)){
+      for (const t of m[1].matchAll(/key\s*:\s*'([A-Za-z0-9_]+)'/g)) used.add(t[1]);
+    }
+    const missing=[...used].filter(k=>!defined.has(k));
+    check('every cue the code plays exists in AUDIO_FILES', missing.length===0,
+      missing.join(', ')||used.size+' cues');
+    const absent=[...defined].filter(([,f])=>!existsSync(join(ROOT,'assets/audio',f)));
+    check('every AUDIO_FILES entry exists on disk', absent.length===0,
+      absent.map(([k,f])=>k+'→'+f).join(', ')||defined.size+' files');
+  }
+}
+
+// ---- 9. docs that stores and testers actually read -----------------------
 check('RIGHTS covers the DV clip', has('RIGHTS.md','footage_clip_5s.mp4'));
 check('RIGHTS covers AI audio', /MiniMax|minimax/.test(read('RIGHTS.md')));
 check('RIGHTS covers the shader', has('RIGHTS.md','retrozone-LICENSE'));
