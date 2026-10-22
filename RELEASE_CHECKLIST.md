@@ -16,7 +16,7 @@
 - [x] 34/34 运行时音频（`?nointro=1&novideo=1&audiodbg=1` → `AUDIO PASS`），含 2026-10-22 重交付的 28 个 192 kbps 母带
 - [x] 可读性审计（`?nointro=1&lumtest=1` → `LUM PASS 23/23`）：暗房三处显影 / 接带面板 / 走廊三处观察，在模拟 55% 显示增益下仍有高光与局部对比；字幕 ≥ 4.5:1
 - [x] UI 版式审计（`?nointro=1&uitest=1` → 1280×720 / 1024×768 / 800×480 / 1366×768 / 1920×1080 / 2560×1440 六档均 `UI PASS`）
-- [x] 真实按键三结局（`?e2e=help|film|bad` → 三个 `E2E PASS`）
+- [x] 真实按键三结局（`?e2e=help|film|bad` → 三个 `E2E PASS`，且逐章链路断言：起仪、找到她 4 次、闭眼帧、三处异常、躲过 4 轮、拍她、走廊电话、接带、洗印）
 - [x] 内测加密门（`./dev/deploy_beta.sh --dry-run && node dev/beta_gate/gate_check.mjs` → `GATE PASS 15/15`）
 - [x] 发布审计（`node dev/release_audit.mjs` → `AUDIT PASS 72/72`）：版本号在 README / TRIAL_PLAY / CHECKLIST / store 四处一致；zip 比源码新且含当前 `game.js`；zip 内无 `dev/` `playtest/` `store/` `assets/references` `assets/prompts` 与 PNG 母版；`index.html` 不带内测钩子、不带 `noindex`；**包内每个素材都能在 MANIFEST / SOUND_MANIFEST / CREDITS / RIGHTS 里找到出处**；SHA-256 与 `.sha256` 一致；预告片时长/分辨率/音轨符合商店要求；商店文案版本号、描述内每张图、第二幕与预告片是否在、桌面键鼠与 AI 声明是否在；README 顶栏链到的文档必须带当前版本或 `HISTORICAL`
 - [x] **解包冒烟**（`verify.sh` 自动）：把 zip 解到 `/tmp` 后直接 `file://` 打开，`TEST PASS 72/72`，且 `game.js` 里引用的每个 `assets/…` 路径在包内都存在——证明玩家拿到的东西本身能跑，而不只是仓库能跑

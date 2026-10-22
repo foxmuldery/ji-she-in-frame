@@ -234,9 +234,10 @@ try{
   check('recorder attaches in the same tab',
     await waitFor(`!!document.getElementById('recPill')`,'recorder pill',20000));
   check('game canvas is rendering',
-    await evaluate(`(()=>{const c=document.getElementById('pixel'); if(!c) return false;
+    await waitFor(`(()=>{const c=document.getElementById('pixel'); if(!c) return false;
       const x=c.getContext('2d'); const d=x.getImageData(0,0,64,64).data;
-      let s=0; for (let i=0;i<d.length;i+=4) s+=d[i]+d[i+1]+d[i+2]; return s>0;})()`));
+      let s=0; for (let i=0;i<d.length;i+=4) s+=d[i]+d[i+1]+d[i+2]; return s>0;})()`,
+      'canvas pixels', 10000));
 
   // ---- 6. other gated pages, same session ------------------------------
   await goto(ORIGIN+'/playtest/beta.html');

@@ -270,7 +270,9 @@ const state={
   ritual:{incense:2,bowl:1,thread:0,active:false,seen:false,done:false,loop:0,reviews:0,eyeSaid:false,inspected:{incense:false,bowl:false,thread:false},camSeen:{incense:false,bowl:false,thread:false}},
   reconOffset:0.08, reconAligned:false, reconEver:false, reconDragging:false, reconDragX:0, reconDragStart:0, reviewQuiz:{step:0,locked:false,wrong:0},
   glitch:0, glitchAt:0, time:0, last:0,
-  muted:false, paused:false, flashSafe:false, silent:false, scareUntil:0, scareAt:0, caseOpen:false, scanStart:0, scanT:0, scanDone:false, scanRisked:false, scanTarget:null, battery:100, lastBatteryAt:0, photos:{incense:false,bowl:false,thread:false}, photoScarePending:false, photoFlashUntil:0, photoRevealUntil:0, photoRevealTarget:null, chapter:1, scene:'room', hunt:null, hide:null, anomalies:{incense:false,bowl:false,thread:false}, ch3FrameGate:false, ch3FrameOk:false, finalPhoto:false, phoneDone:false, corr:{depth:0,answered:false,ringAt:0,portrait:false,threadSeen:false}, oldWomanGone:false, darkChapter:false, runStart:0, runEnd:0, chapterStartedAt:0, chapterTimes:[], inputLock:false, runId:0, transition:false, closeupUntil:0, lookFrame:0, lookStepAt:0, reviewCount:0, blinkSaid:false
+  muted:false, paused:false, flashSafe:false, silent:false, scareUntil:0, scareAt:0, caseOpen:false, scanStart:0, scanT:0, scanDone:false, scanRisked:false, scanTarget:null, battery:100, lastBatteryAt:0, photos:{incense:false,bowl:false,thread:false}, photoScarePending:false, photoFlashUntil:0, photoRevealUntil:0, photoRevealTarget:null, chapter:1, scene:'room', hunt:null, hide:null, anomalies:{incense:false,bowl:false,thread:false}, ch3FrameGate:false, ch3FrameOk:false, finalPhoto:false, phoneDone:false, corr:{depth:0,answered:false,ringAt:0,portrait:false,threadSeen:false}, oldWomanGone:false, darkChapter:false, runStart:0, runEnd:0, chapterStartedAt:0, chapterTimes:[], inputLock:false, runId:0,
+  mile:{rituals:0,hunts:0,frames:0,anomalies:0,hides:0,finalPhoto:0,corridor:0,splice:0,print:0},
+  transition:false, closeupUntil:0, lookFrame:0, lookStepAt:0, reviewCount:0, blinkSaid:false
 };
 const keys={left:false,right:false,up:false,down:false};
 // Simulated-player / fuzz mode: logic runs, render + audio + DOM HUD are skipped.
@@ -3622,6 +3624,7 @@ function completeRitual(){
   const r=state.ritual;
   if (r.done) return;
   r.done=true;
+  state.mile.rituals++;
   updateRitualHUD();
   playMedia('ritualOk',0.38,0.06);
   playMedia('incense',0.22,0.10);
@@ -3996,6 +3999,7 @@ function stepLookFrame(dir){
   renderTimeline();
   if (state.lookFrame===5 && state.ch3FrameGate && !state.ch3FrameOk){
     state.ch3FrameOk=true;
+    state.mile.frames++;
     state.blinkSaid=true;
     playMedia('scanPing',0.28,0.03);
     say('……闭眼了。带子和房间对上了。',3600);
@@ -4810,6 +4814,7 @@ function corridorInteract(){
 function answerPhone(){
   if (state.scene!=='corridor' || state.corr.answered) return;
   state.corr.answered=true;
+  state.mile.corridor=1;
   playMedia('voicePhone',0.82,0.06);
   say('电话里：你终于接电话了。别让她抬手。',4200);
   prompt('');
@@ -5116,6 +5121,7 @@ function spliceCommit(){
   const off=k.v-k.target;
   if (Math.abs(off)<=0.03){
     k.split=true; k.open=false;
+    state.mile.splice=1;
     playMedia('anomalySnap',0.5,0.03);
     playMedia('revealImpact',0.2,0.05);
     glitchNow();
@@ -5139,6 +5145,7 @@ function darkPrint(){
   const k=state.dark;
   if (state.scene!=='darkroom' || !k || !k.split || k.print) return;
   k.print=true;
+  state.mile.print=1;
   playMedia('shutter',0.5,0.02);
   playMedia('oldBreath',0.5,0.05);
   state.photoFlashUntil=performance.now()+220;
@@ -5531,6 +5538,7 @@ function hideInteract(){
   }
   state.hide.lastSpot=spotIndex;
   state.hide.round++;
+  state.mile.hides=state.hide.round;
   if (state.hide.round>=4){
     state.hide.active=false;
     say('四次都躲开了。她不再看你。',3000);
@@ -5572,6 +5580,7 @@ function huntInteract(){
   }
   if (HIDE_SPOTS.indexOf(spot)===state.hunt.pos){
     state.hunt.count++;
+    state.mile.hunts=state.hunt.count;
     state.hunt.seen=false;
     state.ritual.reviews=(state.ritual.reviews||0)+1;
     playMedia('oldBreath',0.55,0.04); glitchNow();
@@ -5629,6 +5638,7 @@ function takeAnomalyPhoto(){
   if (state.battery<16){ say('电量不够拍。',2400); return; }
   state.battery=Math.max(0,state.battery-16);
   state.anomalies[target]=true;
+  state.mile.anomalies++;
   state.hunt.count++;
   state.photoFlashUntil=performance.now()+160;
   state.photoRevealUntil=performance.now()+1000;
@@ -5658,6 +5668,7 @@ function takeFinalPhoto(){
   if (state.battery<16){ say('电量不够拍。',2400); return; }
   state.battery=Math.max(0,state.battery-16);
   state.finalPhoto=true;
+  state.mile.finalPhoto=1;
   state.oldWomanGone=false;
   state.darkChapter=false;
   state.choice=true;
@@ -6610,6 +6621,9 @@ function reset(){
   state.oldWomanGone=false; state.darkChapter=false;
   state.reviewQuiz={step:0,locked:false,wrong:0}; state.reconOffset=0.08; state.reconAligned=false; state.reconEver=false; state.reconDragging=false;
   state.runStart=0; state.runEnd=0; state.chapterStartedAt=0; state.chapterTimes=[]; state.inputLock=false; state.pauseQueued=false; state.last=0;
+  // Cumulative milestones. Entering a chapter resets ch3FrameOk and drops
+  // state.hide, so dev/e2e needs its own record of what was actually played.
+  state.mile={rituals:0,hunts:0,frames:0,anomalies:0,hides:0,finalPhoto:0,corridor:0,splice:0,print:0};
   if (caseEl) caseEl.classList.add('hidden');
   if (chapterEl) chapterEl.classList.add('hidden');
   document.body.classList.remove('caseOpen');

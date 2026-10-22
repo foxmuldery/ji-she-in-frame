@@ -888,12 +888,47 @@
     const endTxt=(document.getElementById('endTitle')||{}).textContent||'';
     const ending=(G.state&&G.state.ending)||'';
     const want=END_TITLE[E2E];
-    const ok=!err && ending===E2E && endTxt.trim()===want && !(ERRS.length);
+    // Reaching the right card is necessary but not sufficient: a regression that
+    // skipped a pass could still land on the same card. Assert the chain itself,
+    // chapter by chapter, so "the third pass photographs three anomalies" and
+    // "the fourth pass survives three hide rounds" are actually required.
+    const s=G.state||{};
+    const mile=s.mile||{};
+    const chain={
+      rituals:mile.rituals||0,
+      hunts:mile.hunts||0,
+      pass3Frames:mile.frames||0,
+      pass3Anomalies:mile.anomalies||0,
+      pass4HideRounds:mile.hides||0,
+      pass5FinalPhoto:mile.finalPhoto||0,
+      corridorPhone:mile.corridor||0,
+      darkroomSplice:mile.splice||0,
+      darkroomPrint:mile.print||0,
+      ritualLoops:(s.ritual&&s.ritual.loop)||0
+    };
+    const chainBad=[];
+    if (E2E==='bad'){
+      // the bad card is only legitimate if the altar really failed three times
+      if (chain.ritualLoops<3) chainBad.push('ritualLoops<3');
+    } else {
+      // the five passes, the corridor call and the darkroom must all have happened
+      if (chain.rituals<1) chainBad.push('ritual');
+      if (chain.hunts<4) chainBad.push('hunt4');
+      if (chain.pass3Anomalies<3) chainBad.push('anomalies3');
+      if (chain.pass3Frames<1) chainBad.push('frameGate');
+      if (chain.pass4HideRounds<4) chainBad.push('hide4');
+      if (!chain.pass5FinalPhoto) chainBad.push('finalPhoto');
+      if (!chain.corridorPhone) chainBad.push('phone');
+      if (!chain.darkroomSplice) chainBad.push('splice');
+      if (!chain.darkroomPrint) chainBad.push('print');
+    }
+    const ok=!err && ending===E2E && endTxt.trim()===want && !(ERRS.length) && !chainBad.length;
     const detail=ok?'':('ending='+JSON.stringify(ending)+' endTitle='+JSON.stringify(endTxt.trim())
+      +(chainBad.length?' chain='+chainBad.join(','):'')
       +(err?' err='+err.message:'')+(ERRS.length?' pageerror='+ERRS[0]:''));
     document.title=(ok?'E2E PASS ':'E2E FAIL ')+E2E+(r?' '+(r.sec).toFixed(1)+'s':'')+(detail?' :: '+detail:'');
     document.body.setAttribute('data-e2e',JSON.stringify({ending:E2E,ok,sec:r&&r.sec,seg:r&&r.seg,dwell:r&&r.dwell,c2:r&&r.dbg&&r.dbg.c2,
-      keys:r&&r.counters,_endTitle:endTxt.trim(),err:err&&err.message,pageErrors:ERRS.slice(0,4)}));
+      chain, keys:r&&r.counters,_endTitle:endTxt.trim(),err:err&&err.message,pageErrors:ERRS.slice(0,4)}));
     window.__stopLoop=true;
     return;
   }
