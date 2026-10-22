@@ -1,0 +1,17 @@
+{
+ "v": 1,
+ "kdf": "PBKDF2-SHA256",
+ "iter": 310000,
+ "salt": "ZgeN8nAD+8PA7zDc2OLO/g==",
+ "check": {
+  "v": 1,
+  "iv": "BR/1b5aqwQbY6GON",
+  "ct": "APOuSGbj/5QwaYNcZnJ9WFX7ihp7PKqiLHxwiGLrnleahkU="
+ },
+ "files": {
+  "game": "game.enc",
+  "beta": "beta.enc",
+  "report": "report.enc"
+ },
+ "note": "Encrypted playtest payload. Password is not stored here."
+}
