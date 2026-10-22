@@ -45,7 +45,7 @@ const S={
   open:false, exported:false, endingSeen:false,
   lastKeyAt:T0, lastActAt:T0,
   media:null, chunks:[], stream:null, bitRate:3000000, recStart:0, recBytes:0,
-  jank:{n:0,max:0,sum:0}, errors:[], chapterAt:{}, chapterTimes:[],
+  jank:{n:0,max:0,sum:0}, bootGap:0, playT0:0, errors:[], chapterAt:{}, chapterTimes:[],
   autoTried:false, closing:false, restored:null, lastChapter:0
 };
 
@@ -203,16 +203,25 @@ function bindInput(){
   // frame stalls: the most useful perf signal for a 2D canvas game
   let prev=0;
   function raf(ts){
-    // only measure while the player is actually playing: load spikes, the
-    // start screen and background-tab throttling are not game performance
+    // Only measure while the player is actually playing. Load spikes, the start
+    // screen, an unfocused window and background-tab throttling (Chrome drops
+    // rAF to ~1 fps when the window is occluded) are not game performance:
+    // counting them produces fake 1000 ms "stutters" in every review.
     const g=window.__jiThird, st=g&&g.state;
     const live=!!(st&&st.started&&!st.paused&&!st.ended);
-    if (prev && live && ts-prev>150 && ts-prev<3000 && document.visibilityState==='visible'){
+    if (live && !S.playT0) S.playT0=ts;
+    const booting=live && ts-S.playT0<2000;
+    const focused=document.hasFocus();
+    if (prev && live && focused && ts-prev>150 && ts-prev<3000 && document.visibilityState==='visible'){
       const ms=Math.round(ts-prev);
-      S.jank.max=Math.max(S.jank.max,ms);
-      S.jank.n++;
-      S.jank.sum+=ms;
-      if (ms>=250 && S.jank.n<200) ev('jank',{ms:ms});
+      if (booting){
+        S.bootGap=Math.max(S.bootGap,ms);
+      } else {
+        S.jank.max=Math.max(S.jank.max,ms);
+        S.jank.n++;
+        S.jank.sum+=ms;
+        if (ms>=250 && S.jank.n<200) ev('jank',{ms:ms});
+      }
     }
     prev=ts;
     requestAnimationFrame(raf);
@@ -334,7 +343,7 @@ function summary(){
     events: S.events.length,
     longestGapMs: longest?longest.ms:0,
     longestGapWhere: longest?longest.where:'',
-    jank: jank, jankMaxMs: jankMax,
+    jank: jank, jankMaxMs: jankMax, bootGapMs: S.bootGap,
     errors: errors,
     recordMs: gait,
     chapterTimes: S.chapterTimes.slice(),
@@ -557,7 +566,10 @@ function buildUI(){
   });
 
   window.addEventListener('keydown',e=>{
-    if (e.altKey && e.shiftKey && e.code==='KeyR'){ e.preventDefault(); S.open=!S.open; render(); }
+    if (e.altKey && e.shiftKey && e.code==='KeyR'){
+      e.preventDefault(); e.stopPropagation();
+      S.open=!S.open; render();
+    }
   },true);
 }
 function render(){

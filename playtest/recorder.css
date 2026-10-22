@@ -31,7 +31,7 @@
 
 #recPanel{
   order:1;
-  width:302px; max-height:min(78vh,640px); overflow:auto;
+  width:302px; max-width:calc(100vw - 28px); max-height:min(78vh,640px); overflow:auto;
   background:rgba(8,9,7,.96); color:#d8c9a8;
   border:1px solid rgba(216,201,168,.24);
   box-shadow:0 18px 50px rgba(0,0,0,.65);
@@ -105,7 +105,7 @@
 }
 
 .recToast{
-  order:0; width:302px;
+  order:0; width:302px; max-width:calc(100vw - 28px);
   padding:9px 11px;
   background:rgba(12,10,8,.96); color:#e8dfc8;
   border-left:2px solid #c04a38;
