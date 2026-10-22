@@ -245,6 +245,28 @@ canvas{position:absolute;display:block;}
 
 .hidden{opacity:0 !important;visibility:hidden !important;}
 
+/* Touch-only devices: the game has no touch input, so say so before the player
+   invests ten minutes in a room they cannot walk. Sized off --u like the rest. */
+#desktop{z-index:60;background:radial-gradient(ellipse at 50% 40%,rgba(36,28,18,.6) 0%,rgba(4,5,4,.97) 62%,#000 100%);}
+.deskInner{
+  position:relative;text-align:center;width:min(560px,88vw);max-height:88%;overflow:auto;
+  background:linear-gradient(160deg,rgba(11,12,10,.97),rgba(4,5,4,.99));
+  border:1px solid rgba(216,201,168,.24);padding:calc(26px*var(--u)) calc(28px*var(--u)) calc(22px*var(--u));
+  box-shadow:0 30px 90px rgba(0,0,0,.85),inset 0 1px 0 rgba(232,223,200,.05);
+}
+.deskInner::before{content:'';display:block;width:46px;height:2px;background:var(--red-bright);margin:0 auto calc(18px*var(--u));}
+.deskKicker{color:var(--dim);font:calc(9px*var(--u))/1 "Courier New",monospace;letter-spacing:.42em;text-indent:.42em;}
+.deskTitle{margin-top:calc(12px*var(--u));font:calc(26px*min(var(--u),1.5))/1.2 "Songti SC","STSong","SimSun",serif;color:var(--bone);letter-spacing:.14em;}
+.deskText{margin-top:calc(12px*var(--u));color:rgba(232,223,200,.8);font-size:calc(12px*min(var(--u),1.4));line-height:1.9;font-family:"PingFang SC",serif;letter-spacing:.05em;}
+.deskText.dim{color:rgba(216,201,168,.5);font-size:calc(11px*min(var(--u),1.3));}
+.deskKeys{display:flex;flex-wrap:wrap;justify-content:center;gap:calc(5px*var(--u)) calc(12px*var(--u));margin-top:calc(14px*var(--u));color:rgba(216,201,168,.6);font:calc(10px*var(--u))/1.6 "Courier New",monospace;letter-spacing:.06em;}
+.deskKeys b{color:var(--bone);font-weight:400;border-bottom:1px solid rgba(216,201,168,.3);padding-bottom:1px;}
+.deskBtns{display:flex;justify-content:center;margin-top:calc(18px*var(--u));}
+#deskContinue{cursor:pointer;background:rgba(142,42,34,.14);border:1px solid rgba(216,201,168,.5);color:var(--bone);font:calc(13px*var(--u))/1 "Courier New","PingFang SC",monospace;letter-spacing:.32em;text-indent:.32em;padding:calc(13px*var(--u)) calc(26px*var(--u));min-height:44px;}
+#deskContinue:hover{background:rgba(142,42,34,.28);border-color:var(--bone);}
+.deskNote{margin-top:calc(14px*var(--u));color:rgba(216,201,168,.4);font:calc(9px*var(--u))/1.6 "Courier New",monospace;letter-spacing:.08em;}
+.touchWarn{margin-top:12px;color:#d08a72;font:10px/1.6 "Courier New",monospace;letter-spacing:.08em;}
+
 @media (max-width:720px){
   #controls{display:none;}
   .startSeal{display:none;}
