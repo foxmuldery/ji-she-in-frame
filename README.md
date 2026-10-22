@@ -8,7 +8,7 @@
 
 > **GitHub**：<https://github.com/foxmuldery/ji-she-in-frame>  
 > **下载 / Release**：<https://github.com/foxmuldery/ji-she-in-frame/releases>  · 当前版本见 [`VERSION`](VERSION)  
-> **交接报告**：[`HANDOVER_FINAL.md`](HANDOVER_FINAL.md)（顶部为 v2.10.1 现状，正文 v2.8 历史快照）  
+> **交接报告**：[`HANDOVER_FINAL.md`](HANDOVER_FINAL.md)（顶部为 v2.10.2 现状，正文 v2.8 历史快照）  
 > **在线内测（需要试玩密码，带记录器）**：<https://foxmuldery.github.io/ji-she-in-frame/playtest/beta.html>  
 > **试玩（内容扩充分支）**：[`TRIAL_PLAY.md`](TRIAL_PLAY.md) · 自检 `./dev/verify.sh`  
 > **第三方评估（v2.8 历史快照，时长结论已被推翻）**：[`EVALUATION_HANDOVER.md`](EVALUATION_HANDOVER.md)
@@ -253,7 +253,14 @@ python3 -m http.server 8000
 
 ## 版本
 
-当前：**v2.10.1**（见 [`VERSION`](VERSION)）。
+当前：**v2.10.2**（见 [`VERSION`](VERSION)）。
+
+**v2.10.2 · 触屏入口告知 / 链路回归 / 解包冒烟（2026-10-22）**
+
+- 新增触屏告知页：检测到「只有粗指针、没有细指针」的设备（手机、未接键鼠的平板）时，先给一页说明「本作需要键盘与鼠标」并列出按键；按钮或 `Enter` 可进入，游戏按键在该页被吞掉，不会走进一个走不动的房间。标题页同时保留一行常驻提示。`?mobile=force` / `?mobile=off` 覆盖检测，`?uitest=1` 会在六档分辨率下检查这一页不被裁切、按钮 ≥44px 可点、且 `W`/`F` 不会穿过去。
+- 回归补强：真实按键 e2e 现在断言**整条链路**（起仪、找到她 4 次、闭眼帧、三处异常、躲过 4 轮、拍她、走廊电话、接带、洗印），不再只看结局卡——跳过某一遍也可能落到同一张卡上。
+- 发布审计 77 条：新增**解包冒烟**（把 zip 解到 `/tmp` 后自己跑出 `TEST PASS 72/72`，且 `game.js` 引用的每个 `assets/…` 都在包内）、**cue 完整性**（代码里 `playMedia` 点到的键必须都在 `AUDIO_FILES` 里且文件存在）、**商店截图统一 1280×720**。
+- 修掉两处 flake：音频自检原本固定等 1.7 秒解码 34 个文件，冷启动偶发 `AUDIO FAIL`，改为轮询到全部 ready；内测门的 canvas 抽样原本只取一次，会撞上黑场淡入，改为重试。
 
 **v2.10.1 · 大屏可读性 / 内测加密 / 商店预告（2026-10-22）**
 
@@ -273,7 +280,7 @@ python3 -m http.server 8000
 - 章节面板新增暗房状态（显影 N/3、接缝偏移 ±%、照片已拍/未拍），提示与字幕沿用按字数计算的停留时间。
 - 模拟与回归：自测 57 → 72（新增暗房进入、三处显影、接带失败不锁死、接带成功、洗印、门口退出、回到房间 13 项），`dev/sim/naive_sim.js` 学会整套暗房流程。
 - 时长：零知识人速模拟 100 局 100% 通关，中位 8:24 → **9:38**（p10 8:53 / p90 10:42），第二幕贡献约 +74 秒。
-- 发布包：`dist/ji-she-in-frame-v2.10.1.zip`
+- 发布包：`dist/ji-she-in-frame-v2.10.2.zip`
 
 **v2.9 · content & gate（2026-10-22）**
 
@@ -285,7 +292,7 @@ python3 -m http.server 8000
 - UI 版式审计：新增 `?nointro=1&uitest=1`（`dev/verify.sh` 内置 1280×720 / 1024×768 / 800×480 三档）——把游戏里最长的中文串推进每个 HUD 槽位，检查字幕、提示、章节目标、记录板、回看条、暂停 / 名单 / 结局卡是否被 `#stage` 裁切或超出画外，并验证暂停按钮不重叠、点击区 ≥80×30。矮窗口下暂停改两列、控制说明收起、标题与结局卡压缩，避免够不到「继续」。
 - 键鼠同等：结局卡与标题页支持纯键盘操作（`Enter` 重开 / `C` 名单 / `Esc` 回标题），按钮补 `:focus-visible` 描边。
 - 零知识模拟新增 `?pace=human`（按字幕长度停顿），100 局 100% 通关，中位 8:24（2026-10-22 复测）。
-- 发布脚本 `dev/package.sh`：只打运行时文件，输出 `dist/ji-she-in-frame-v2.10.1.zip` + SHA-256；包内 `?test=1` / `?audiodbg=1` 均通过。
+- 发布脚本 `dev/package.sh`：只打运行时文件，输出 `dist/ji-she-in-frame-v2.10.2.zip` + SHA-256；包内 `?test=1` / `?audiodbg=1` 均通过。
 - 解包冒烟（`verify.sh` 自动）：把 `dist/*.zip` 解到 `/tmp` 后直接开 `file://`，自测 72/72，并校验 `game.js` 引用的每个 `assets/…` 都在包内——验的是玩家真正下载到的那个文件，而不是仓库。
 - 发布审计 `dev/release_audit.mjs`（`verify.sh` 末尾自动跑）：版本号四处一致、zip 比源码新且含当前 `game.js`、zip 不含开发/生成源/内测钩子、**每个随包素材都能在 MANIFEST / CREDITS / RIGHTS 找到出处；**代码里 playMedia/playCue 点到的每个 cue 都在 AUDIO_FILES 里、且文件真的存在**、校验和匹配、预告片规格合规。
 
@@ -314,8 +321,8 @@ python3 -m http.server 8000
 - 统一色调与光比：窗光体积、地面积水、供桌暖光、悬挂外套细节。
 - 音频 WAV → MP3，关键美术 PNG → JPEG；发布 zip 约 13 MB。
 - 46/46 自测通过；24/24 音频加载通过。（v2.7 数据；v2.9 为 57/57、34/34、UI 3/3、e2e 3/3。）
-- 发布包：`dist/ji-she-in-frame-v2.10.1.zip`
-- SHA-256：见 `dist/ji-she-in-frame-v2.10.1.zip.sha256`（打包时生成；避免把校验值写进包内 README 造成自指）
+- 发布包：`dist/ji-she-in-frame-v2.10.2.zip`
+- SHA-256：见 `dist/ji-she-in-frame-v2.10.2.zip.sha256`（打包时生成；避免把校验值写进包内 README 造成自指）
 
 上架前的人工确认与商业发行替换项见 [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md)。
 

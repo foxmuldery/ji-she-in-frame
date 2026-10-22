@@ -153,6 +153,19 @@ if (existsSync(join(ROOT,'store/itch_description.html'))){
   check('store description covers the second act', /暗房/.test(html) && /10_act2_darkroom\.png/.test(html));
   check('store description has no five-pass miscount', !/四遍同一间房/.test(html));
   check('store description states content warnings', /内容提示/.test(html));
+  // Screenshots are the first thing a shopper sees; a 1024x640 shot in a
+  // 1280x720 page looks like a bug, so pin the size.
+  const shots=readdirSync(join(ROOT,'store')).filter(f=>/\.png$/i.test(f));
+  check('store has at least 12 screenshots', shots.length>=12, shots.length+' shots');
+  const wrongSize=[];
+  for (const f of shots){
+    try{
+      const dim=execFileSync('sips',['-g','pixelWidth','-g','pixelHeight',join(ROOT,'store',f)],
+        {encoding:'utf8'}).match(/pixelWidth: (\d+)[\s\S]*?pixelHeight: (\d+)/);
+      if (!dim||dim[1]!=='1280'||dim[2]!=='720') wrongSize.push(f+(dim?' '+dim[1]+'x'+dim[2]:' unreadable'));
+    }catch(e){ wrongSize.push(f+' unreadable'); }
+  }
+  check('every store screenshot is 1280×720', wrongSize.length===0, wrongSize.slice(0,3).join(', '));
 }
 
 // ---- 8. every cue the code asks for is actually in the kit ---------------

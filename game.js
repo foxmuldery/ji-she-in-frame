@@ -245,6 +245,8 @@ const tlReconBar=document.getElementById('tlReconBar');
 const tlDelta=document.getElementById('tlDelta');
 const muteBtn=document.getElementById('muteBtn');
 const startEl=document.getElementById('start');
+const deskEl=document.getElementById('desktop');
+const touchWarnEl=document.getElementById('touchWarn');
 const endEl=document.getElementById('end');
 const endTitle=document.getElementById('endTitle');
 const endText=document.getElementById('endText');
@@ -6321,6 +6323,14 @@ if (new URLSearchParams(location.search).get('dump')==='1'){
   },500);
 }
 window.addEventListener('keydown',(e)=>{
+  // Touch-only gate: it is a full-screen page, so swallow game keys until the
+  // player acknowledges it (Enter / Esc / Space, or the button).
+  if (deskEl && !deskEl.classList.contains('hidden')){
+    if (e.code==='Enter'||e.code==='NumpadEnter'||e.code==='Escape'||e.code==='Space'){
+      e.preventDefault(); dismissDesktopGate();
+    } else if (e.code!=='Tab'){ e.preventDefault(); }
+    return;
+  }
   // Keyboard-only players finish the game on the keyboard, so the shelves need
   // keys too: Enter restarts, C opens credits, Esc returns to the title.
   if (state.ended && !endEl.classList.contains('hidden')
@@ -6811,6 +6821,36 @@ updateMuteLabels();
 
 const params=new URLSearchParams(location.search);
 noGlitch = params.get('noglitch')==='1';
+
+// ---- touch-only gate ------------------------------------------------------
+// There is no touch movement, so a phone player would start a room they cannot
+// walk out of. Detect "coarse pointer and no fine pointer at all" (a tablet
+// with a keyboard/trackpad reports a fine pointer and is allowed through) and
+// say so up front. ?mobile=force / ?mobile=off override it for tests.
+const TOUCH_ONLY=(()=>{
+  const p=params.get('mobile');
+  if (p==='off') return false;
+  if (p==='force') return true;
+  try{
+    const coarse=matchMedia('(pointer: coarse)').matches||matchMedia('(hover: none)').matches;
+    const fine=matchMedia('(any-pointer: fine)').matches;
+    const hasTouch=(navigator.maxTouchPoints||0)>0;
+    return coarse && !fine && hasTouch;
+  }catch(e){ return false; }
+})();
+if (TOUCH_ONLY){
+  document.body.dataset.touchonly='1';
+  if (touchWarnEl) touchWarnEl.classList.remove('hidden');
+  if (deskEl && !params.get('nointro')) deskEl.classList.remove('hidden');
+}
+function dismissDesktopGate(){
+  if (!deskEl || deskEl.classList.contains('hidden')) return;
+  deskEl.classList.add('hidden');
+}
+if (deskEl) deskEl.addEventListener('click',(e)=>{
+  if (e.target && e.target.id==='deskContinue') dismissDesktopGate();
+});
+
 // Asset-capture helper: ?clean=1 hides every UI chrome so the iso room can be
 // screenshotted as a clean still for the procedural DV placeholder footage.
 // Gameplay is untouched.
@@ -7464,6 +7504,34 @@ async function runUiTest(){
   check('title fit', layoutFacts(si).clipX<=1, 'clip '+layoutFacts(si).clipX);
   check('stage inside viewport', stageR().width<=innerWidth+1 && stageR().height<=innerHeight+1,
     Math.round(stageR().width)+'x'+Math.round(stageR().height)+' vp '+innerWidth+'x'+innerHeight);
+
+  // touch-only notice: a phone player must be told before they start, so this
+  // page has to fit — and its only button has to be tappable — at every size.
+  if (deskEl){
+    deskEl.classList.remove('hidden');
+    await sleep(120);
+    const di=deskEl.querySelector('.deskInner');
+    const dbt=document.getElementById('deskContinue');
+    check('desktop gate inside stage', within(di.getBoundingClientRect(),stageR()),
+      'inner '+Math.round(di.getBoundingClientRect().top)+'-'+Math.round(di.getBoundingClientRect().bottom)
+      +' stage '+Math.round(stageR().top)+'-'+Math.round(stageR().bottom));
+    check('desktop gate fit', reachable(di,layoutFacts(di)),
+      'clip '+layoutFacts(di).clipX+'/'+layoutFacts(di).clipY);
+    const dbr=dbt.getBoundingClientRect();
+    check('desktop gate button tappable', dbr.height>=44&&dbr.width>=120,
+      Math.round(dbr.width)+'x'+Math.round(dbr.height));
+    check('desktop gate button inside stage', within(dbr,stageR()));
+    // behaviour: game keys must not leak through to a room the player cannot walk
+    window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyW',bubbles:true}));
+    window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyF',bubbles:true}));
+    window.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyW',bubbles:true}));
+    window.dispatchEvent(new KeyboardEvent('keyup',{code:'KeyF',bubbles:true}));
+    check('desktop gate survives game keys', !deskEl.classList.contains('hidden'));
+    window.dispatchEvent(new KeyboardEvent('keydown',{code:'Enter',bubbles:true}));
+    check('desktop gate dismissed by Enter', deskEl.classList.contains('hidden'));
+    deskEl.classList.add('hidden');
+    await sleep(40);
+  }
 
   const el=document.createElement('pre');
   el.id='uiResult';

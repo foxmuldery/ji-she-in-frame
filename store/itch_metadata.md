@@ -15,7 +15,7 @@ She Is in the Frame
 - Made with: HTML5
 - Status: Prototype / vertical slice
 - Release date: 2026-10-22
-- Version: v2.10.1
+- Version: v2.10.2
 
 ## Tags
 horror, found-footage, psychological-horror, pixel-art, isometric, short, narrative, experimental, chinese, offline, singleplayer
@@ -25,6 +25,9 @@ Single player
 
 ## Input
 Keyboard, mouse (desktop). No touch controls; the game needs `W A S D`, `F`, `R`, `Tab`.
+Touch-only devices get an explicit "keyboard required" page before the title screen
+(and a standing note on it) instead of starting a room they cannot walk in; a tablet
+with a keyboard or trackpad is let through automatically.
 
 ## Trailer
 `store/trailer_26s.mp4` — 26.0 s, 1280×720, 30 fps, H.264 + AAC. Rebuilt from the game's own renderer by `dev/trailer/run.mjs`.
