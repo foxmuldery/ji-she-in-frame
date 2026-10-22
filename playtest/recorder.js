@@ -201,7 +201,7 @@ function bindInput(){
     if (S.errors.indexOf(m)<0){ S.errors.push(m); ev('error',{msg:m}); }
   });
   // frame stalls: the most useful perf signal for a 2D canvas game
-  let prev=0;
+  let prev=0, recent=[];
   function raf(ts){
     // Only measure while the player is actually playing. Load spikes, the start
     // screen, an unfocused window and background-tab throttling (Chrome drops
@@ -211,8 +211,17 @@ function bindInput(){
     const live=!!(st&&st.started&&!st.paused&&!st.ended);
     if (live && !S.playT0) S.playT0=ts;
     const booting=live && ts-S.playT0<2000;
-    const focused=document.hasFocus();
-    if (prev && live && focused && ts-prev>150 && ts-prev<3000 && document.visibilityState==='visible'){
+    // A window that is occluded or in the background gets rAF throttled to
+    // ~1 fps by the browser, which looks exactly like a catastrophic stutter.
+    // Sustained <10 fps means "not being rendered", not "slow game", so those
+    // samples are dropped and only isolated stalls are reported.
+    if (prev){
+      recent.push(ts-prev);
+      if (recent.length>90) recent.shift();
+    }
+    const avg=recent.length>=20?recent.reduce((a,b)=>a+b,0)/recent.length:16;
+    S.throttled=avg>100;
+    if (prev && live && !S.throttled && ts-prev>150 && ts-prev<3000 && document.visibilityState==='visible'){
       const ms=Math.round(ts-prev);
       if (booting){
         S.bootGap=Math.max(S.bootGap,ms);
