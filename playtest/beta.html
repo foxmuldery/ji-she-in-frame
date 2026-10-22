@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#070806" />
+<title>祭 · 内测试玩</title>
+<link rel="icon" href="../assets/images/favicon.svg" type="image/svg+xml" />
+<style>
+:root{
+  --bg:#080907; --bone:#d8c9a8; --dim:rgba(216,201,168,.6); --faint:rgba(216,201,168,.34);
+  --red:#c04a38; --line:rgba(216,201,168,.16);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;color:var(--bone);}
+html{background:var(--bg);}
+body{background:transparent;}
+body{
+  font:15px/1.75 "PingFang SC","Songti SC","Courier New",monospace;
+  min-height:100vh; padding:0 20px 90px; overflow-x:hidden;
+}
+body::before{
+  content:""; position:fixed; inset:0; z-index:0;
+  background:url("../assets/images/ji_keyart_v1.jpg") center 38%/cover no-repeat;
+  filter:grayscale(.25) brightness(3.2) contrast(1.02) saturate(1.05); opacity:1;
+}
+body::after{
+  content:""; position:fixed; inset:0; z-index:1;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(192,74,56,.16), transparent 55%),
+    linear-gradient(180deg, rgba(8,9,7,.20), rgba(8,9,7,.78) 44%, rgba(8,9,7,.95) 70%, #080907 100%);
+}
+.wrap{position:relative;z-index:2;max-width:720px;margin:0 auto;padding-top:9vh;}
+.kicker{font-size:10px;letter-spacing:.42em;color:var(--faint);text-transform:uppercase;}
+h1{font-size:34px;line-height:1.25;letter-spacing:.16em;font-weight:400;margin:14px 0 6px;}
+h1 small{display:block;font-size:11px;letter-spacing:.34em;color:var(--faint);margin-top:12px;font-weight:400;}
+.lede{color:var(--dim);font-size:13.5px;line-height:1.9;margin:18px 0 26px;max-width:56ch;}
+.lede b{color:var(--bone);font-weight:500;}
+
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin:26px 0 6px;}
+a.btn{
+  display:inline-block;padding:12px 22px;text-decoration:none;
+  border:1px solid rgba(216,201,168,.3);color:var(--bone);
+  font-size:13px;letter-spacing:.1em;background:rgba(216,201,168,.04);
+  transition:.16s;
+}
+a.btn:hover{border-color:var(--bone);background:rgba(216,201,168,.09);color:#fff;}
+a.btn.primary{
+  background:rgba(142,42,34,.34);border-color:rgba(192,74,56,.75);color:#f2e7d2;
+}
+a.btn.primary:hover{background:rgba(142,42,34,.55);}
+a.btn.ghost{background:none;border-color:rgba(216,201,168,.16);color:var(--dim);}
+.note{font-size:11px;color:var(--faint);letter-spacing:.04em;margin-bottom:34px;}
+
+h2{
+  font-size:12px;letter-spacing:.24em;color:var(--faint);font-weight:400;
+  margin:38px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line);
+}
+ol,ul{margin:0;padding-left:1.4em;}
+li{margin:7px 0;font-size:13.5px;line-height:1.85;color:var(--dim);}
+li b{color:var(--bone);font-weight:500;}
+code{
+  font:12px/1.6 "Courier New",monospace;color:#e8dfc8;
+  background:rgba(216,201,168,.09);padding:1px 5px;border-radius:2px;
+}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.box{border:1px solid var(--line);padding:14px 16px;background:rgba(8,9,7,.55);}
+.box h3{margin:0 0 8px;font-size:11px;letter-spacing:.18em;color:var(--faint);font-weight:400;}
+.box p{margin:0;font-size:12.5px;line-height:1.8;color:var(--dim);}
+.tag{display:inline-block;padding:1px 8px;border:1px solid rgba(192,74,56,.55);
+  color:#e2ac97;font-size:10px;letter-spacing:.14em;margin-left:8px;vertical-align:2px;}
+.foot{margin-top:44px;padding-top:14px;border-top:1px solid var(--line);
+  font-size:10.5px;line-height:1.9;color:rgba(216,201,168,.28);letter-spacing:.03em;}
+@media (max-width:620px){
+  .cols{grid-template-columns:1fr;}
+  h1{font-size:26px;}
+  .wrap{padding-top:6vh;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">internal playtest · not the release build</div>
+  <h1>祭：她在画面里 <span class="tag">v2.10 内测</span>
+    <small>SHE IS IN THE FRAME</small>
+  </h1>
+
+  <p class="lede">
+    单周目约 <b>10 分钟</b>。你跟着她走进一间老屋，举起摄影机——然后发现画面里一直有她。<br>
+    这一版新增 <b>第二幕「暗房」</b>；右上角的记录器会把这一局发生的事（按键、每一句字幕、章节、掉帧）记下来，
+    你可以选择同时录屏和麦克风，结束时一起带走。
+  </p>
+
+  <div class="btns">
+    <a class="btn primary" href="../index.html?rec=1">开始试玩（含记录器）</a>
+    <a class="btn" href="../index.html">纯净试玩</a>
+    <a class="btn ghost" href="report.html">打开复盘页</a>
+  </div>
+  <div class="note">建议 Chrome / Edge 桌面版全屏；第一次点画面或按任意键才会出声。</div>
+
+  <h2>三步把这一局记下来</h2>
+  <ol>
+    <li>进游戏后，点右下角的 <b>● 00:00</b> 打开记录器，填一个代号（可留空）。</li>
+    <li>点 <b>开始录屏</b> → 选择 <b>此标签页</b> → 允许麦克风（可选，能听见你边玩边说）。<br>
+        不想录屏也行，文字记录会照常记；录屏只存在本机。</li>
+    <li>玩到结局会自动导出 <code>ji-playtest_*.json</code>；录屏在点 <b>停止并保存</b> 时保存成 <code>.webm</code>。</li>
+  </ol>
+
+  <h2>这一版想让你重点看什么</h2>
+  <ul>
+    <li><b>第二幕能不能自己看懂</b>：红灯下显影三处 → 回剪辑台 → 把断口对到红线 → 空格接带。哪一步卡住了？</li>
+    <li><b>时长落在哪</b>：模拟中位 9:38，真人的停顿应该更长；如果 7 分钟就结束了，是哪一段太快？</li>
+    <li><b>有没有看不懂的句子</b>：字幕停留时间按字数计算，但文案本身是否一眼能懂，只有真人能判断。</li>
+    <li><b>惊吓是否有效</b>：不是要血腥，而是“多一个人 / 少一段”的那种不适感有没有成立。</li>
+  </ul>
+
+  <h2>记录了什么（透明说明）</h2>
+  <div class="cols">
+    <div class="box">
+      <h3>会记录</h3>
+      <p>按键与时间点 · 屏幕上出现过的每一句字幕和提示 · 章节、场景、进度 · 掉帧与页面报错 ·
+      窗口尺寸与浏览器版本 · 你填的代号和一句话感受。</p>
+    </div>
+    <div class="box">
+      <h3>不会做</h3>
+      <p>不上传任何数据，没有后端、没有账号、没有第三方统计。所有内容都在浏览器的
+      <code>localStorage</code> 里，直到你点导出、把文件发给我。</p>
+    </div>
+  </div>
+
+  <h2>怎么把记录给我</h2>
+  <ol>
+    <li>打开 <a href="report.html" style="color:var(--bone)">复盘页</a>，把 <code>.json</code> 拖进去。</li>
+    <li>点 <b>复制 Markdown</b>，直接贴给我；或者把 JSON 一起发我，我能看到完整时间线。</li>
+    <li>如果有录屏，<code>.webm</code> 一起发我最好——哪一秒皱眉，比任何数字都有用。</li>
+  </ol>
+
+  <div class="foot">
+    内容提示：惊悚、突然的音效、磁带闪烁与跟踪带；无血腥特写。暂停菜单可切「闪烁效果：柔和」。<br>
+    这一版仍是 vertical slice：DV 素材与部分美术为程序化占位，正式版替换实拍。内测链接请勿公开传播。
+  </div>
+</div>
+</body>
+</html>
