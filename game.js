@@ -7569,6 +7569,13 @@ if (params.get('nointro')==='1'){
         state.dark.open=true; state.dark.target=0.62; state.dark.v=0.62;
       }
       if (d==='split'){ state.dark.split=true; state.dark.seen={line:true,bench:true,wall:true}; state.dark.depth=0.6; }
+      // store shot: the room after the tape is joined — the role label now reads
+      // 谢雨洁（重建） / 徐英子的记忆, which is the beat the act exists for.
+      if (d==='back'){
+        state.dark.seen={line:true,bench:true,wall:true};
+        state.dark.split=true; state.dark.print=true; state.dark.depth=0.05;
+        finishDarkroom();
+      }
       updateChapterHUD();
       // headless screenshots: rAF is frozen under --virtual-time-budget, so
       // paint the frame we just configured instead of waiting for one.
