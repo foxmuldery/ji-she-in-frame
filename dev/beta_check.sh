@@ -33,6 +33,16 @@ if [[ -x "$CHROME" ]]; then
     "file://${ROOT}/playtest/report.html?demo=1" 2>/dev/null || true)
   echo "$rdom" | rg -q '试玩时长' || { echo "FAIL: report cards missing"; exit 1; }
   echo "$rdom" | rg -q '结局' || { echo "FAIL: report ending row missing"; exit 1; }
+  # several sessions must roll up: the point of a playtest is the distribution
+  echo "$rdom" | rg -q '全部 3 份' || { echo "FAIL: report session switcher missing"; exit 1; }
+  adom=$("$CHROME" --headless=new --no-sandbox --allow-file-access-from-files \
+    --mute-audio --window-size=1180,1500 --user-data-dir="/tmp/ji_aggr_$$" \
+    --virtual-time-budget=9000 --dump-dom \
+    "file://${ROOT}/playtest/report.html?demo=1&agg=1" 2>/dev/null || true)
+  echo "$adom" | rg -q '全部记录' || { echo "FAIL: aggregate head missing"; exit 1; }
+  echo "$adom" | rg -q '时长中位' || { echo "FAIL: aggregate duration missing"; exit 1; }
+  echo "$adom" | rg -q '停在' || { echo "FAIL: aggregate drop-off missing"; exit 1; }
+  echo "$adom" | rg -q '第一遍 · 供桌' || { echo "FAIL: aggregate chapter table missing"; exit 1; }
 else
   echo "WARN: Chrome not found — skipped browser checks"
 fi
