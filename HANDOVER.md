@@ -1,5 +1,8 @@
 # 交接报告 — 《祭：她在画面里》v2.8
 
+> **HISTORICAL — 历史快照（v2.8，2026-10-21）。** 本文的时长与“10 分钟未达标 / 暂不建议上架”结论已被 v2.10.1 取代：当前首次游玩中位 9:38，门禁见 `./dev/verify.sh`，现状以 [`README.md`](README.md) 与 [`DEVLOG.md`](DEVLOG.md) 为准。
+
+
 > 供审阅 / 接手用的完整状态说明。  
 > 日期：2026-10-21（Asia/Shanghai）  
 > 路径：`ji_third_person_demo/`

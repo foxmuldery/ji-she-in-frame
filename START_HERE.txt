@@ -1,0 +1,10 @@
+《祭：她在画面里》— 试玩包
+
+1. 双击 index.html（或解压后保持 assets/ 与 index.html 同级）
+2. 戴耳机，点「开始」
+3. 详细说明见 TRIAL_PLAY.md
+4. 版本号见 VERSION；上架清单见 RELEASE_CHECKLIST.md
+
+快速验证（开发者）：
+  ./dev/verify.sh      # 自测 + 音频 + 三结局真实按键回归
+  ./dev/package.sh     # 生成 dist/ji-she-in-frame-v<版本>.zip

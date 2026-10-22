@@ -4,6 +4,8 @@
 
 ## 1. 项目
 
+- 本声明对应版本：v2.10.1（见 [`VERSION`](VERSION)）
+
 - 标题：《祭：她在画面里》/ SHE IS IN THE FRAME
 - 作者/账号：foxmuldery
 - 代码、剧情、像素场景、交互设计、商店文案与截图：© 2026 foxmuldery
