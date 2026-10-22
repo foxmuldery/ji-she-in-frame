@@ -219,9 +219,12 @@ function bindInput(){
       recent.push(ts-prev);
       if (recent.length>90) recent.shift();
     }
-    const avg=recent.length>=20?recent.reduce((a,b)=>a+b,0)/recent.length:16;
-    S.throttled=avg>100;
-    if (prev && live && !S.throttled && ts-prev>150 && ts-prev<3000 && document.visibilityState==='visible'){
+    // need a window of samples before judging, otherwise the first throttled
+    // frames after a reload look like stutters
+    const ready=recent.length>=20;
+    const avg=ready?recent.reduce((a,b)=>a+b,0)/recent.length:16;
+    S.throttled=ready && avg>100;
+    if (prev && ready && live && !S.throttled && ts-prev>150 && ts-prev<3000 && document.visibilityState==='visible'){
       const ms=Math.round(ts-prev);
       if (booting){
         S.bootGap=Math.max(S.bootGap,ms);
@@ -229,7 +232,8 @@ function bindInput(){
         S.jank.max=Math.max(S.jank.max,ms);
         S.jank.n++;
         S.jank.sum+=ms;
-        if (ms>=250 && S.jank.n<200) ev('jank',{ms:ms});
+        // a 100 s delta means sleep/resume or a debugger pause, not a stutter
+        if (ms>=250 && ms<3000 && S.jank.n<200) ev('jank',{ms:ms});
       }
     }
     prev=ts;
@@ -672,6 +676,8 @@ window.addEventListener('beforeunload',e=>{
 });
 document.addEventListener('visibilitychange',()=>{
   if (document.visibilityState==='hidden') scheduleSave();
+  // never carry a frame delta across a suspend/resume
+  prev=0; recent.length=0;
 });
 restoreOffer();
 render();
