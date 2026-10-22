@@ -85,9 +85,9 @@ button:disabled{opacity:.55;cursor:progress;}
   <h1>祭</h1>
   <div class="sub">她 在 画 面 里</div>
   <p class="lede">这个版本只给受邀试玩。输入试玩密码后，游戏和记录器只在这一标签页内解密。</p>
-  <form id="gateForm" novalidate>
+  <form id="gateForm" novalidate autocomplete="off" onsubmit="return false">
     <label for="gatePw">试玩密码</label>
-    <input id="gatePw" name="pw" type="password" inputmode="text"
+    <input id="gatePw" type="password" inputmode="text"
       autocomplete="current-password" spellcheck="false" autocapitalize="off"
       placeholder="输入密码" autofocus />
     <button id="gateGo" type="submit">进入</button>
@@ -146,6 +146,10 @@ button:disabled{opacity:.55;cursor:progress;}
     pw.disabled=true;
     setTimeout(()=>{ pw.disabled=false; pw.focus(); },Math.min(4000,400*failures));
   });
+  // Boot marker: until this runs, the inline `onsubmit="return false"` above is
+  // the only guard, so a too-early Enter can never leak the password into the
+  // URL as a GET field.
+  form.dataset.ready='1';
   pw.focus();
 })();
 </script>

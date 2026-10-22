@@ -1,6 +1,6 @@
 # 内测构建 v2.10.1
 
-- 构建时间：2026-10-22 15:00
+- 构建时间：2026-10-22 15:04
 - 入口：`/playtest/beta.html`（需要试玩密码；密码不在本仓库）
 - 游戏：`/index.html`，带记录器时 `/index.html?rec=1`
 - 复盘：`/playtest/report.html`
