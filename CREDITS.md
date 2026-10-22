@@ -25,9 +25,30 @@ deliberately left 3–17 dB below the mix, so `dev/audio/integrate_delivery.sh`
 applies a per-file gain from `dev/audio/delivery_gains.tsv` that restores the
 peak each file had in the shipping build. Loop seams for `bulb_hum.wav` and
 `window_rain.wav` were re-checked after the gain (zero-sample wrap jump).
-Six newer cues (`voice_phone`, `ritual_ok`, `anomaly_snap`, `hide_fail`,
-`hide_lure`, `phone_ring`) were not part of that delivery and remain at
-128 kbps from the 2026-10-21 batch.
+Six newer cues were not part of that delivery and remain at 128 kbps from the
+2026-10-21 batch; they were generated the same way (MiniMax Design,
+`seedaudio` for foley, `minimax_tts` + `speech-2.8-hd` for the phone line):
+
+| File | Kind |
+| --- | --- |
+| `assets/audio/voice_phone.mp3` | TTS voice — the phone call |
+| `assets/audio/phone_ring.mp3` | foley — ringing handset |
+| `assets/audio/ritual_ok.mp3` | foley — altar confirmation |
+| `assets/audio/anomaly_snap.mp3` | foley — shutter/anomaly hit |
+| `assets/audio/hide_lure.mp3` | foley — the thing that calls you out |
+| `assets/audio/hide_fail.mp3` | foley — caught hiding |
+
+## Inline / hand-authored runtime files
+
+Two runtime scripts carry generated art as base64 data URIs rather than as
+separate image files; they are derived from the same MiniMax `nano_banana`
+masters listed above and inherit the same placeholder status.
+
+| File | Origin |
+| --- | --- |
+| `assets/face_data.js` | the old woman's face texture, exported from the `ji_oldwoman_model_sheet_v1` master |
+| `assets/poster_data.js` | `assets/images/ji_clip_v1_poster.jpg` re-encoded as a data URI so the DV canvas stays same-origin and untainted for the shader |
+| `assets/images/favicon.svg` | hand-authored vector mark (red frame + seal); not generated |
 
 ## Runtime asset notes
 
@@ -43,6 +64,17 @@ Six newer cues (`voice_phone`, `ritual_ok`, `anomaly_snap`, `hide_fail`,
   from the same clip instead of flashing the pixel fallback.
 - CRT shader: RetroZone ShaderOverlay, MIT. See
   `vendor/retrozone-LICENSE.txt`.
+
+## Marketing and playtest tooling
+
+| Artifact | How it was made |
+| --- | --- |
+| `store/trailer_26s.mp4` | captured from the game's own renderer by `dev/trailer/run.mjs` (title → room → DV → tape gap → corridor → darkroom → end card); music bed `assets/audio/music_cue_60s.mp3` (MiniMax `minimax_music`), cut at 0:06, 26.0 s |
+| `store/cover_1280x720.jpg` | frame 1.6 s of that trailer |
+| `store/*.png` | deterministic headless captures of the running game (`dev/store_shots.sh` and earlier manual passes); no compositing beyond the game's own UI |
+| `playtest/recorder.js` | written for this project; records by reading `window.__jiThird.state` and on-screen text, never uploads |
+| `playtest/report.html` | written for this project; single-file offline analyser |
+| `dev/beta_gate/*` | written for this project; uses the browser's WebCrypto (AES-256-GCM + PBKDF2) and Node's `crypto` at package time — no third-party crypto code ships |
 
 ## Fonts
 
