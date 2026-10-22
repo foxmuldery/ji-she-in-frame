@@ -7497,7 +7497,8 @@ if (simParam){
 if (params.get('rec')){
   const rs=document.createElement('script');
   rs.src='playtest/recorder.js';
-  rs.onerror=()=>{ document.title='REC FAIL: recorder missing'; };
+  // the release zip does not ship playtest/: fail quietly there
+  rs.onerror=()=>{ if (window.console) console.warn('playtest recorder not bundled (release build)'); };
   document.body.appendChild(rs);
 }
 const naiveParam=params.get('naive');
