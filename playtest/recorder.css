@@ -1,0 +1,120 @@
+/* 内测试玩记录器 UI — 只在 ?rec=1 时注入，发布包不含此文件 */
+#recRoot{
+  position:fixed; right:14px; bottom:14px; z-index:2147483000;
+  display:flex; flex-direction:column; align-items:flex-end; gap:6px;
+  font:12px/1.45 "PingFang SC","Songti SC","Courier New",monospace;
+  color:#d8c9a8; pointer-events:auto;
+  max-height:calc(100vh - 28px);
+}
+#recPill{
+  order:2;
+  display:flex; align-items:center; gap:7px;
+  padding:7px 11px; cursor:pointer;
+  background:rgba(9,10,8,.86); color:#d8c9a8;
+  border:1px solid rgba(216,201,168,.28); border-radius:2px;
+  font:11px/1 "Courier New",monospace; letter-spacing:.08em;
+  backdrop-filter:blur(3px);
+}
+#recPill:hover{ border-color:rgba(216,201,168,.6); color:#fff; }
+#recPill.on{ border-color:rgba(192,74,56,.8); }
+.recDot{
+  width:7px; height:7px; border-radius:50%;
+  background:#8e2a22; box-shadow:0 0 0 0 rgba(192,74,56,.6);
+}
+.recDot.live{ background:#e0483a; animation:recPulse 1.6s ease-out infinite; }
+@keyframes recPulse{
+  0%{ box-shadow:0 0 0 0 rgba(224,72,58,.55); }
+  70%{ box-shadow:0 0 0 7px rgba(224,72,58,0); }
+  100%{ box-shadow:0 0 0 0 rgba(224,72,58,0); }
+}
+.recSep{ color:rgba(216,201,168,.3); }
+
+#recPanel{
+  order:1;
+  width:302px; max-width:calc(100vw - 28px); max-height:min(78vh,640px); overflow:auto;
+  background:rgba(8,9,7,.96); color:#d8c9a8;
+  border:1px solid rgba(216,201,168,.24);
+  box-shadow:0 18px 50px rgba(0,0,0,.65);
+  backdrop-filter:blur(6px);
+}
+#recPanel.hidden{ display:none; }
+.recHead{
+  display:flex; align-items:center; gap:8px;
+  padding:9px 11px; border-bottom:1px solid rgba(216,201,168,.14);
+}
+.recHead b{ font-size:12px; letter-spacing:.18em; font-weight:500; }
+.recSid{ font:10px/1 "Courier New",monospace; color:rgba(216,201,168,.4); letter-spacing:.05em; }
+.recX{
+  margin-left:auto; background:none; border:0; color:rgba(216,201,168,.55);
+  font-size:16px; line-height:1; cursor:pointer; padding:0 2px;
+}
+.recX:hover{ color:#fff; }
+.recBody{ padding:11px; display:flex; flex-direction:column; gap:9px; }
+
+.recField{ display:flex; flex-direction:column; gap:4px; }
+.recField span{ font-size:10px; letter-spacing:.12em; color:rgba(216,201,168,.55); }
+.recField input,.recField textarea{
+  width:100%; box-sizing:border-box;
+  background:rgba(216,201,168,.05); color:#e8dfc8;
+  border:1px solid rgba(216,201,168,.2); border-radius:2px;
+  padding:6px 7px; font:11px/1.5 "PingFang SC","Courier New",monospace;
+  resize:vertical;
+}
+.recField input:focus,.recField textarea:focus{
+  outline:none; border-color:rgba(192,74,56,.75);
+  background:rgba(192,74,56,.07);
+}
+
+.recMediaRow{ display:flex; gap:6px; }
+.recMediaRow select{
+  flex:1; background:rgba(216,201,168,.05); color:#cbbfa6;
+  border:1px solid rgba(216,201,168,.2); border-radius:2px;
+  font:10px/1 "Courier New",monospace; padding:0 4px; height:28px;
+}
+.recBtn{
+  flex:1; height:28px; cursor:pointer;
+  background:rgba(216,201,168,.06); color:#d8c9a8;
+  border:1px solid rgba(216,201,168,.26); border-radius:2px;
+  font:11px/1 "PingFang SC","Courier New",monospace; letter-spacing:.06em;
+}
+.recBtn:hover{ border-color:rgba(216,201,168,.6); color:#fff; }
+.recBtn.primary{ background:rgba(142,42,34,.3); border-color:rgba(192,74,56,.7); color:#f0e2cb; }
+.recBtn.primary:hover{ background:rgba(142,42,34,.48); }
+.recBtn.danger{ background:rgba(192,74,56,.34); border-color:rgba(224,72,58,.8); color:#fff; }
+.recBtn.ghost{ background:none; border-color:rgba(216,201,168,.16); color:rgba(216,201,168,.6); }
+.recBtns{ display:flex; gap:6px; }
+
+.recHint{ font-size:10px; line-height:1.55; color:rgba(216,201,168,.42); }
+.recStats{
+  display:flex; flex-wrap:wrap; gap:4px 10px;
+  padding-top:8px; border-top:1px solid rgba(216,201,168,.1);
+  font:10px/1.4 "Courier New",monospace; color:rgba(216,201,168,.5);
+}
+.recRestore{
+  padding:8px; border:1px dashed rgba(192,74,56,.6);
+  background:rgba(142,42,34,.1); display:flex; flex-direction:column; gap:7px;
+}
+.recRestore.hidden{ display:none; }
+.recFoot{ font-size:9px; line-height:1.5; color:rgba(216,201,168,.28); letter-spacing:.04em; }
+
+.recRaw{
+  width:100%; box-sizing:border-box; min-height:120px;
+  background:rgba(216,201,168,.05); color:#e8dfc8;
+  border:1px solid rgba(216,201,168,.24);
+  font:10px/1.5 "Courier New",monospace; padding:6px;
+}
+
+.recToast{
+  order:0; width:302px; max-width:calc(100vw - 28px);
+  padding:9px 11px;
+  background:rgba(12,10,8,.96); color:#e8dfc8;
+  border-left:2px solid #c04a38;
+  box-shadow:0 12px 34px rgba(0,0,0,.6);
+  font-size:11px; line-height:1.6;
+}
+.recToast.hidden{ display:none; }
+
+@media (max-height:520px){
+  #recPanel{ width:272px; max-height:70vh; }
+  .recField textarea{ rows:1; }
+}

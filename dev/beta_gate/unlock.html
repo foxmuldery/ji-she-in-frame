@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#070806" />
+<title>祭 · 内测验证</title>
+<link rel="icon" href="../assets/images/favicon.svg" type="image/svg+xml" />
+<style>
+:root{
+  --bg:#070806; --bone:#e3d9c2; --dim:rgba(216,201,168,.62); --faint:rgba(216,201,168,.34);
+  --red:#c04a38; --line:rgba(216,201,168,.18);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;min-height:100%;}
+html{background:var(--bg);}
+body{
+  color:var(--bone);display:flex;align-items:center;justify-content:center;
+  min-height:100vh;padding:28px 20px;
+  font:15px/1.75 "PingFang SC","Songti SC","Courier New",monospace;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;
+  background:url("../assets/images/ji_keyart_v1.jpg") center 42%/cover no-repeat;
+  filter:grayscale(.35) brightness(1.6) contrast(1.05);opacity:.55;
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(120,26,20,.16), transparent 58%),
+    linear-gradient(180deg, rgba(6,7,6,.55), rgba(6,7,6,.9) 58%, #070806 100%);
+}
+.card{
+  position:relative;z-index:1;width:100%;max-width:420px;
+  padding:38px 34px 30px;
+  background:linear-gradient(165deg, rgba(16,17,14,.92), rgba(6,7,6,.96));
+  border:1px solid var(--line);
+  box-shadow:0 40px 120px rgba(0,0,0,.85), inset 0 1px 0 rgba(232,223,200,.06);
+}
+.kicker{font-size:9.5px;letter-spacing:.42em;color:var(--faint);text-transform:uppercase;}
+h1{
+  margin:16px 0 4px;font-family:"Songti SC","STSong",serif;font-weight:400;
+  font-size:42px;letter-spacing:.22em;line-height:1.1;color:#f2e9d4;
+}
+.sub{font-size:11px;letter-spacing:.3em;color:var(--faint);margin-bottom:24px;}
+.lede{font-size:13px;line-height:1.85;color:var(--dim);margin:0 0 22px;}
+label{display:block;font-size:9.5px;letter-spacing:.28em;color:var(--faint);margin-bottom:8px;}
+input{
+  width:100%;background:rgba(0,0,0,.42);border:1px solid rgba(216,201,168,.26);
+  color:var(--bone);font:15px/1 "Courier New","PingFang SC",monospace;letter-spacing:.18em;
+  padding:14px 14px;outline:none;transition:border-color .18s,background .18s;
+}
+input:focus{border-color:rgba(216,201,168,.62);background:rgba(0,0,0,.6);}
+input::placeholder{color:rgba(216,201,168,.3);letter-spacing:.12em;}
+button{
+  width:100%;margin-top:12px;cursor:pointer;
+  background:rgba(142,42,34,.18);border:1px solid rgba(192,74,56,.6);
+  color:#f4e8d2;font:13px/1 "PingFang SC","Courier New",monospace;letter-spacing:.3em;
+  padding:14px 18px;transition:background .18s,border-color .18s;
+}
+button:hover:not(:disabled){background:rgba(142,42,34,.34);border-color:var(--red);}
+button:disabled{opacity:.55;cursor:progress;}
+.err{
+  min-height:20px;margin:12px 0 0;font-size:12px;letter-spacing:.06em;color:var(--red);
+}
+.err.shake{animation:shake .32s ease;}
+@keyframes shake{
+  0%,100%{transform:translateX(0);}
+  25%{transform:translateX(-5px);}
+  75%{transform:translateX(5px);}
+}
+.foot{
+  margin-top:24px;padding-top:16px;border-top:1px solid rgba(216,201,168,.12);
+  font-size:10px;line-height:1.8;letter-spacing:.08em;color:rgba(216,201,168,.34);
+}
+.foot b{color:rgba(216,201,168,.62);font-weight:400;}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="kicker">PRIVATE PLAYTEST · 内测</div>
+  <h1>祭</h1>
+  <div class="sub">她 在 画 面 里</div>
+  <p class="lede">这个版本只给受邀试玩。输入试玩密码后，游戏和记录器只在这一标签页内解密。</p>
+  <form id="gateForm" novalidate autocomplete="off" onsubmit="return false">
+    <label for="gatePw">试玩密码</label>
+    <input id="gatePw" type="password" inputmode="text"
+      autocomplete="current-password" spellcheck="false" autocapitalize="off"
+      placeholder="输入密码" autofocus />
+    <button id="gateGo" type="submit">进入</button>
+    <p id="gateErr" class="err" role="alert" aria-live="polite"></p>
+  </form>
+  <div class="foot">
+    <b>请勿转发链接或密码。</b>解密后的内容只存在于本标签页的会话存储里；关闭标签页即失效。
+  </div>
+</main>
+<script src="gate.js"></script>
+<script>
+(function(){
+  const form=document.getElementById('gateForm');
+  const pw=document.getElementById('gatePw');
+  const go=document.getElementById('gateGo');
+  const err=document.getElementById('gateErr');
+  const next=new URLSearchParams(location.search).get('next');
+
+  // already unlocked in this tab: skip the form
+  if (window.JiGate.hasKey()){ location.replace(window.JiGate.safeNext(next)); return; }
+
+  let failures=0, busy=false;
+  // small, harmless breadcrumb trail: lets a tester (and our headless gate
+  // check) see exactly where an unlock stopped
+  const trace=[];
+  window.__gateTrace=trace;
+  const note=(m)=>{ trace.push(((performance.now()/1000).toFixed(2))+' '+m); if (trace.length>40) trace.shift(); };
+  window.addEventListener('error',e=>note('error '+e.message));
+  window.addEventListener('unhandledrejection',e=>note('reject '+(e.reason&&e.reason.message||e.reason)));
+  function fail(msg){
+    err.textContent=msg;
+    err.classList.remove('shake');
+    void err.offsetWidth;
+    err.classList.add('shake');
+    pw.select();
+  }
+  form.addEventListener('submit',async (e)=>{
+    e.preventDefault();
+    if (busy) return;
+    busy=true; go.disabled=true; err.textContent='正在校验…'; note('submit');
+    const val=pw.value.trim();
+    let res;
+    try{ res=await window.JiGate.verifyPassword(val); }
+    catch(ex){ res={ok:false,reason:'校验出错：'+ex.message}; }
+    note('verify '+(res&&res.ok?'ok':'fail '+(res&&res.reason)));
+    if (res.ok){
+      err.textContent='';
+      location.replace(window.JiGate.safeNext(next));
+      return;
+    }
+    failures++;
+    busy=false; go.disabled=false; note('show error');
+    fail(res.reason||'密码不对');
+    // a beat between attempts, growing slowly: stops a bored guesser without
+    // punishing a tester who fat-fingered it once
+    pw.disabled=true;
+    setTimeout(()=>{ pw.disabled=false; pw.focus(); },Math.min(4000,400*failures));
+  });
+  // Boot marker: until this runs, the inline `onsubmit="return false"` above is
+  // the only guard, so a too-early Enter can never leak the password into the
+  // URL as a GET field.
+  form.dataset.ready='1';
+  pw.focus();
+})();
+</script>
+</body>
+</html>

@@ -5,3 +5,5 @@ shots/
 dist/
 *.zip
 *.rej
+.beta-site/
+dev/.beta_pass
