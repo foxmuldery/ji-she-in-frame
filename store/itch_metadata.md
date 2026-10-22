@@ -8,14 +8,14 @@ She Is in the Frame
 
 ## Tagline / short description
 你以为你在扮演她。直到你举起摄影机。  
-一款 目标 10–15 分钟（当前待扩充）的 found-footage 心理恐怖短片游戏：真等距像素房间 × 第一人称旧带 DV × 五遍循环解谜。
+一款单周目约 10 分钟（模拟中位 9:38）的 found-footage 心理恐怖短片游戏：真等距像素房间 × 第一人称旧带 DV × 五遍循环解谜 + 门后暗房第二幕。
 
 ## Classification
 - Genre: Adventure / Horror / Interactive Fiction
 - Made with: HTML5
 - Status: Prototype / vertical slice
-- Release date: 2026-10-20
-- Version: v2.8
+- Release date: 2026-10-22
+- Version: v2.10.1
 
 ## Tags
 horror, found-footage, psychological-horror, pixel-art, isometric, short, narrative, experimental, chinese, offline, singleplayer
@@ -24,7 +24,10 @@ horror, found-footage, psychological-horror, pixel-art, isometric, short, narrat
 Single player
 
 ## Input
-Keyboard, mouse
+Keyboard, mouse (desktop). No touch controls; the game needs `W A S D`, `F`, `R`, `Tab`.
+
+## Trailer
+`store/trailer_26s.mp4` — 26.0 s, 1280×720, 30 fps, H.264 + AAC. Rebuilt from the game's own renderer by `dev/trailer/run.mjs`.
 
 ## Platforms
 - Windows / macOS / Linux: download and open `index.html` in Chrome, Edge or Safari
@@ -40,7 +43,9 @@ Free (prototype). Optional donation if you want to support the next chapter.
 - 闪烁效果：柔和（暂停菜单，或系统“减少动态效果”自动开启）
 - 静音：`M` / HUD 按钮
 - 全屏：标题页 / 暂停菜单
-- 键盘可完成全部流程
+- 键盘可完成全部流程（标题页 `Enter` / `空格` 开始，结局卡 `Enter` 重开 / `C` 名单 / `Esc` 回标题）
+- HUD 随窗口等比缩放：1080p / 1440p 下字幕与章节目标保持可读
+- 暗房与走廊的暗部亮度按「低亮度笔记本」校准过（55% 显示增益下仍可辨认目标）
 - 字幕：所有台词均有中文字幕
 - 无快速反应 QTE、无失败惩罚
 
@@ -56,4 +61,6 @@ Free (prototype). Optional donation if you want to support the next chapter.
 
 ## Links
 - Devlog / 开发记录：`DEVLOG.md`
+- 试玩指南 / 操作与流程：`TRIAL_PLAY.md`
+- 上架前仍需人工确认的项：`RELEASE_CHECKLIST.md`
 - 素材清单：`assets/MANIFEST.json`、`assets/audio/SOUND_MANIFEST.json`
