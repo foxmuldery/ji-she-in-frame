@@ -203,7 +203,11 @@ function bindInput(){
   // frame stalls: the most useful perf signal for a 2D canvas game
   let prev=0;
   function raf(ts){
-    if (prev && ts-prev>150 && document.visibilityState==='visible'){
+    // only measure while the player is actually playing: load spikes, the
+    // start screen and background-tab throttling are not game performance
+    const g=window.__jiThird, st=g&&g.state;
+    const live=!!(st&&st.started&&!st.paused&&!st.ended);
+    if (prev && live && ts-prev>150 && ts-prev<3000 && document.visibilityState==='visible'){
       const ms=Math.round(ts-prev);
       S.jank.max=Math.max(S.jank.max,ms);
       S.jank.n++;
