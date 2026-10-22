@@ -165,6 +165,14 @@ check('README documents the playtest password gate', /AES-256-GCM|密文/.test(r
 check('README does not contain the password', !read('README.md').includes(read('dev/.beta_pass').trim()));
 check('checklist references the readability audit', has('RELEASE_CHECKLIST.md','lumtest'));
 check('checklist references the gate check', has('RELEASE_CHECKLIST.md','gate_check.mjs'));
+check('checklist records the extracted-package smoke', /解包冒烟|package smoke/.test(read('RELEASE_CHECKLIST.md')));
+// The sim report is the only evidence for the "8-10 minutes" claim, and it is
+// two reports stapled together. The older robot-pace numbers must be labelled
+// so a reviewer cannot quote 99 seconds as the current length.
+const sim=read('dev/sim/REPORT.md');
+check('pacing report states the human median', sim.includes('9:38'), 'p50 9:38');
+check('pacing report labels the superseded robot numbers', /已作废|作废/.test(sim));
+check('verify.sh runs the package smoke', /package smoke|解包冒烟/.test(read('dev/verify.sh')));
 check('trial guide explains the password', /试玩密码/.test(read('TRIAL_PLAY.md')));
 check('password file is gitignored', read('.gitignore').split('\n').some(l=>l.trim()==='dev/.beta_pass'));
 

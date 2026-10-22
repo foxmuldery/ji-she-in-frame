@@ -91,6 +91,29 @@ echo "== release audit (version / package / credits) =="
 grep -E '^built ' /tmp/ji_pkg.log | sed 's/^/  /'
 node dev/release_audit.mjs || { echo "FAIL: release audit"; exit 1; }
 
+echo "== package smoke (extracted zip boots on its own) =="
+# Everything above tests the working tree. A player only ever sees the zip, so
+# extract it somewhere else and boot the copy: this catches a file the package
+# forgot, a path that only works at the repo root, and a stray dev dependency.
+VER="$(tr -d '[:space:]' < VERSION)"
+SMOKE="$(mktemp -d /tmp/ji_pkg_smoke.XXXXXX)"
+trap 'rm -rf "$SMOKE"' EXIT
+unzip -q "dist/ji-she-in-frame-v${VER}.zip" -d "$SMOKE"
+PKG_DIR="$SMOKE/ji-she-in-frame-v${VER}"
+PKG_TITLE=$("$CHROME" --headless=new --no-sandbox --enable-unsafe-swiftshader \
+  --use-angle=swiftshader --ignore-gpu-blocklist \
+  --allow-file-access-from-files --disable-web-security --mute-audio \
+  --user-data-dir="/tmp/ji_smoke_$$" \
+  --virtual-time-budget=120000 --dump-dom "file://${PKG_DIR}/index.html?nointro=1&test=1" 2>/dev/null \
+  | rg -o '<title>[^<]+</title>' | head -1 || true)
+echo "  ${PKG_TITLE:-<no title>}"
+echo "$PKG_TITLE" | rg -q 'TEST PASS' || {
+  echo "FAIL: extracted package does not pass its own self-test"; exit 1; }
+MISSING=$(rg -o 'assets/[A-Za-z0-9_./-]+\.(mp3|wav|mp4|jpg|js)' "$PKG_DIR/game.js" | sort -u \
+  | while read -r a; do [[ -e "$PKG_DIR/$a" ]] || echo "$a"; done)
+if [[ -n "$MISSING" ]]; then echo "FAIL: package references missing assets:"; echo "$MISSING"; exit 1; fi
+echo "  all runtime asset paths in game.js resolve inside the package"
+
 echo "== playtest recorder (beta-only) =="
 if [[ -f playtest/recorder.js ]]; then
   ./dev/beta_check.sh || { echo "FAIL: beta recorder / report"; exit 1; }

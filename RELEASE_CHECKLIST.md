@@ -18,7 +18,8 @@
 - [x] UI 版式审计（`?nointro=1&uitest=1` → 1280×720 / 1024×768 / 800×480 / 1366×768 / 1920×1080 / 2560×1440 六档均 `UI PASS`）
 - [x] 真实按键三结局（`?e2e=help|film|bad` → 三个 `E2E PASS`）
 - [x] 内测加密门（`./dev/deploy_beta.sh --dry-run && node dev/beta_gate/gate_check.mjs` → `GATE PASS 15/15`）
-- [x] 发布审计（`node dev/release_audit.mjs` → `AUDIT PASS 68/68`）：版本号在 README / TRIAL_PLAY / CHECKLIST / store 四处一致；zip 比源码新且含当前 `game.js`；zip 内无 `dev/` `playtest/` `store/` `assets/references` `assets/prompts` 与 PNG 母版；`index.html` 不带内测钩子、不带 `noindex`；**包内每个素材都能在 MANIFEST / SOUND_MANIFEST / CREDITS / RIGHTS 里找到出处**；SHA-256 与 `.sha256` 一致；预告片时长/分辨率/音轨符合商店要求；商店文案版本号、描述内每张图、第二幕与预告片是否在、桌面键鼠与 AI 声明是否在；README 顶栏链到的文档必须带当前版本或 `HISTORICAL`
+- [x] 发布审计（`node dev/release_audit.mjs` → `AUDIT PASS 72/72`）：版本号在 README / TRIAL_PLAY / CHECKLIST / store 四处一致；zip 比源码新且含当前 `game.js`；zip 内无 `dev/` `playtest/` `store/` `assets/references` `assets/prompts` 与 PNG 母版；`index.html` 不带内测钩子、不带 `noindex`；**包内每个素材都能在 MANIFEST / SOUND_MANIFEST / CREDITS / RIGHTS 里找到出处**；SHA-256 与 `.sha256` 一致；预告片时长/分辨率/音轨符合商店要求；商店文案版本号、描述内每张图、第二幕与预告片是否在、桌面键鼠与 AI 声明是否在；README 顶栏链到的文档必须带当前版本或 `HISTORICAL`
+- [x] **解包冒烟**（`verify.sh` 自动）：把 zip 解到 `/tmp` 后直接 `file://` 打开，`TEST PASS 72/72`，且 `game.js` 里引用的每个 `assets/…` 路径在包内都存在——证明玩家拿到的东西本身能跑，而不只是仓库能跑
 
 ## 打包
 
