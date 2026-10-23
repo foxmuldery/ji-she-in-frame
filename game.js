@@ -6623,13 +6623,27 @@ function pixelateLayer(cv,keepAlpha){
   g.restore();
   PAL_LOCK.camMs=performance.now()-t0;
 }
-function camLockOn(){ return state.paletteLock && !FUZZ_ACTIVE && !window.__noCamLock; }
-window.__palLock=PAL_LOCK; window.__lockPalette=lockPalette; window.__pixelateLayer=pixelateLayer;
+function camLockOn(){ return !AUTO_NOLOCK && state.paletteLock && !FUZZ_ACTIVE && !window.__noCamLock; }
+// Self-test / headless runs: skip the per-frame readback (lockPalette and the
+// camera pixelate getImageData). Under --virtual-time-budget each readback
+// stalls the virtual clock and verify.sh can hang. Normal play is unaffected;
+// ?pallock=1 forces the lock back on (screenshot / A-B scripts).
+const AUTO_NOLOCK=(()=>{
+  try{
+    const q=new URLSearchParams(location.search);
+    if (q.get('pallock')==='1') return false;
+    const TEST_KEYS=['test','lumtest','uitest','audiodbg','videodbg','e2e','fuzz','dump'];
+    if (TEST_KEYS.some(k=>q.has(k))) return true;
+    if (/HeadlessChrome/.test(navigator.userAgent||'')) return true;   // virtual time only exists headless
+  }catch(e){}
+  return false;
+})();
+window.__palLock=PAL_LOCK; window.__autoNoLock=AUTO_NOLOCK; window.__lockPalette=lockPalette; window.__pixelateLayer=pixelateLayer;
 function frame(now){
   frameBody(now);
   // Only lock frames that were actually redrawn this tick (paused / title /
   // review frames are left alone so the lock is never applied twice).
-  if (state.paletteLock && state.started && !state.paused && !state.review && !window.__stopLoop && !FUZZ_ACTIVE){
+  if (!AUTO_NOLOCK && state.paletteLock && state.started && !state.paused && !state.review && !window.__stopLoop && !FUZZ_ACTIVE){
     lockPalette(pctx);
   }
 }
