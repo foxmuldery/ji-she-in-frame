@@ -582,3 +582,20 @@ button:focus-visible{outline:2px solid rgba(233,214,170,.85);outline-offset:2px;
   .creditsNote{margin:14px 0 8px;font-size:12px;}
   .creditsMeta{margin:0 0 12px;font-size:12px;}
 }
+
+/* Small windows (k=1): the stage box follows the window so the HTML UI has
+   room, while every canvas stays at exactly 480x270 (1:1, no fractional
+   scaling), centred inside it. */
+#stage.k1 #pixel{inset:auto;left:50%;top:50%;width:480px;height:270px;transform:translate(-50%,-50%);}
+#stage.k1 #camera{top:50%;height:270px;width:360px;transform:translate(-50%,-50%);}
+#stage.k1 #dvVideoCanvas{top:50%;height:270px;width:360px;transform:translate(-50%,-50%);}
+/* k=1 windows are short (e.g. 800x480 browser = 337 px viewport): tighten the
+   keyboard-notice panel so its button stays on screen without scrolling. */
+#stage.k1 .deskInner{padding:12px 18px 10px;max-height:94%;}
+#stage.k1 .deskInner::before{margin-bottom:8px;}
+#stage.k1 .deskTitle{margin-top:6px;font-size:18px;}
+#stage.k1 .deskText{margin-top:6px;line-height:1.5;}
+#stage.k1 .deskKeys{margin-top:6px;line-height:1.4;}
+#stage.k1 .deskBtns{margin-top:8px;}
+#stage.k1 #deskContinue{padding:8px 26px;min-width:124px;}
+#stage.k1 .deskNote{margin-top:6px;}

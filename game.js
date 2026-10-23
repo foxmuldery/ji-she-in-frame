@@ -39,8 +39,17 @@ function pixelScale(){
 function syncUiScale(){
   const k=pixelScale();
   let sw=PW*k+'px', sh=PH*k+'px';
-  // Windows under 960x540 get k=1 (480x270, black border) - never a
-  // fractional scale; pixelScale() already floors at 1.
+  // Windows under 960x540: the canvases stay at exactly 1x (480x270, centred,
+  // see #stage.k1 in style.css) but the stage box - and with it the HTML UI
+  // layer - is sized to the window, so menus / prompts / endings still fit.
+  const small=k<2;
+  if (small){
+    const w=window.innerWidth||PW, h=window.innerHeight||PH;
+    const fw=Math.max(PW,Math.floor(Math.min(w*0.97,h*0.97*16/9)));
+    const fh=Math.max(PH,Math.floor(Math.min(h*0.97,fw*9/16)));
+    sw=Math.min(fw,w)+'px'; sh=Math.min(fh,h)+'px';
+  }
+  stage.classList.toggle('k1',small);
   if (stage.style.width!==sw) stage.style.width=sw;
   if (stage.style.height!==sh) stage.style.height=sh;
   const u=Math.max(1,Math.min(UI_MAX,Math.floor(k/2)));
