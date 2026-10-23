@@ -78,8 +78,16 @@ masters listed above and inherit the same placeholder status.
 
 ## Fonts
 
-No font files are distributed. The UI uses system fonts:
-`Songti SC` / `STSong` / `SimSun`, `PingFang SC`, and `Courier New`.
+Two pixel fonts by TakWolf are embedded, both under the SIL Open Font License 1.1
+(commercial use and bundling with the game allowed; the fonts may not be sold on their own):
+
+| File | Font | License |
+| --- | --- | --- |
+| `assets/fonts/fusion-pixel-12px-proportional-zh_hans.otf.woff2` | Fusion Pixel Font 12px proportional (zh_hans), release 2026.10.16 — Chinese text | `assets/fonts/LICENSES/fusion-pixel-OFL.txt` |
+| `assets/fonts/ark-pixel-12px-monospaced-latin.otf.woff2` | Ark Pixel Font 12px monospaced (latin), release 2026.10.16 — Latin letters / digits | `assets/fonts/LICENSES/ark-pixel-OFL.txt` |
+| `assets/fonts/LICENSES/fusion-upstream-ark-pixel-OFL.txt`, `assets/fonts/LICENSES/fusion-upstream-galmuri-LICENSE.txt`, `assets/fonts/LICENSES/fusion-upstream-cubic-11-OFL.txt` | upstream glyph sources merged into Fusion Pixel (Ark Pixel, Galmuri, Cubic 11) | shipped as required by the Fusion Pixel release |
+
+Sources: https://github.com/TakWolf/fusion-pixel-font , https://github.com/TakWolf/ark-pixel-font
 
 ## Disclosure
 
