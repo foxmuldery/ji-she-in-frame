@@ -7,7 +7,7 @@
 
 const PW=480, PH=270, CW=640, CH=480;
 const pixel=document.getElementById('pixel');
-const pctx=pixel.getContext('2d');
+const pctx=pixel.getContext('2d',{willReadFrequently:true});
 pctx.imageSmoothingEnabled=false;
 const camera=document.getElementById('camera');
 const cctx=camera.getContext('2d');
@@ -25,20 +25,30 @@ camLowCtx.imageSmoothingEnabled=false;
 const stage=document.getElementById('stage');
 const fadeEl=document.getElementById('fade');
 
-// ---------- HUD scale ----------
-// The pixel canvas is upscaled to the stage, so on a 1080p or 1440p display the
-// artwork grows while fixed-px HUD type does not: subtitles end up looking like
-// footnotes on a cinema screen. --u tracks the stage height against the 720p
-// reference (577 px tall), capped so a small window keeps today's sizes.
-const UI_REF_H=577, UI_MAX=2.25;
+// ---------- integer pixel scale + HUD scale ----------
+// The 480x270 pixel canvas is only ever shown at a whole-number zoom k, so
+// every art pixel is exactly k x k screen pixels (no 2/3-px shimmer). The rest
+// of the window stays black and the stage is centred by #app's flexbox.
+// --u is the HUD multiplier for the 12 px pixel fonts and is also a whole
+// number: 720p (k=2) -> 1, 1080p (k=4) -> 2, so HUD glyph pixels stay crisp.
+const UI_MAX=3;
+function pixelScale(){
+  const w=window.innerWidth||PW, h=window.innerHeight||PH;
+  return Math.max(1,Math.floor(Math.min(w/PW,h/PH)));
+}
 function syncUiScale(){
-  const h=stage.getBoundingClientRect().height||UI_REF_H;
-  const u=Math.max(1,Math.min(UI_MAX,h/UI_REF_H));
-  document.documentElement.style.setProperty('--u',u.toFixed(3));
+  const k=pixelScale();
+  let sw=PW*k+'px', sh=PH*k+'px';
+  // Windows under 960x540 get k=1 (480x270, black border) - never a
+  // fractional scale; pixelScale() already floors at 1.
+  if (stage.style.width!==sw) stage.style.width=sw;
+  if (stage.style.height!==sh) stage.style.height=sh;
+  const u=Math.max(1,Math.min(UI_MAX,Math.floor(k/2)));
+  document.documentElement.style.setProperty('--u',String(u));
+  document.documentElement.style.setProperty('--k',String(k));
 }
 syncUiScale();
-if (window.ResizeObserver) new ResizeObserver(syncUiScale).observe(stage);
-else window.addEventListener('resize',syncUiScale);
+window.addEventListener('resize',syncUiScale);
 window.addEventListener('orientationchange',syncUiScale);
 
 // ---------- first-person DV footage layer ----------
@@ -272,7 +282,7 @@ const state={
   ritual:{incense:2,bowl:1,thread:0,active:false,seen:false,done:false,loop:0,reviews:0,eyeSaid:false,inspected:{incense:false,bowl:false,thread:false},camSeen:{incense:false,bowl:false,thread:false}},
   reconOffset:0.08, reconAligned:false, reconEver:false, reconDragging:false, reconDragX:0, reconDragStart:0, reviewQuiz:{step:0,locked:false,wrong:0},
   glitch:0, glitchAt:0, time:0, last:0,
-  muted:false, paused:false, flashSafe:false, silent:false, scareUntil:0, scareAt:0, caseOpen:false, scanStart:0, scanT:0, scanDone:false, scanRisked:false, scanTarget:null, battery:100, lastBatteryAt:0, photos:{incense:false,bowl:false,thread:false}, photoScarePending:false, photoFlashUntil:0, photoRevealUntil:0, photoRevealTarget:null, chapter:1, scene:'room', hunt:null, hide:null, anomalies:{incense:false,bowl:false,thread:false}, ch3FrameGate:false, ch3FrameOk:false, finalPhoto:false, phoneDone:false, corr:{depth:0,answered:false,ringAt:0,portrait:false,threadSeen:false}, oldWomanGone:false, darkChapter:false, runStart:0, runEnd:0, chapterStartedAt:0, chapterTimes:[], inputLock:false, runId:0,
+  muted:false, paused:false, flashSafe:false, paletteLock:true, palMode:'dark', silent:false, scareUntil:0, scareAt:0, caseOpen:false, scanStart:0, scanT:0, scanDone:false, scanRisked:false, scanTarget:null, battery:100, lastBatteryAt:0, photos:{incense:false,bowl:false,thread:false}, photoScarePending:false, photoFlashUntil:0, photoRevealUntil:0, photoRevealTarget:null, chapter:1, scene:'room', hunt:null, hide:null, anomalies:{incense:false,bowl:false,thread:false}, ch3FrameGate:false, ch3FrameOk:false, finalPhoto:false, phoneDone:false, corr:{depth:0,answered:false,ringAt:0,portrait:false,threadSeen:false}, oldWomanGone:false, darkChapter:false, runStart:0, runEnd:0, chapterStartedAt:0, chapterTimes:[], inputLock:false, runId:0,
   mile:{rituals:0,hunts:0,frames:0,anomalies:0,hides:0,finalPhoto:0,corridor:0,splice:0,print:0},
   transition:false, closeupUntil:0, lookFrame:0, lookStepAt:0, reviewCount:0, blinkSaid:false
 };
@@ -3234,18 +3244,18 @@ function drawCameraOverlay(ctx,t,timecode,label='REC',showStamp=true,focusBracke
   ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(22,20,104,30);
   if (label==='PLAY'){
     ctx.fillStyle='#e8dfc8'; ctx.beginPath(); ctx.moveTo(32,29); ctx.lineTo(44,35); ctx.lineTo(32,41); ctx.closePath(); ctx.fill();
-    ctx.font='15px "Courier New",monospace'; ctx.fillText('PLAY',52,41);
+    ctx.font='12px "ArkPixel","FusionPixel",monospace'; ctx.fillText('PLAY',52,41);
   } else if (label==='PAUSE'){
     ctx.fillStyle='#d84a38'; ctx.fillRect(32,27,5,13); ctx.fillRect(41,27,5,13);
-    ctx.fillStyle='#e8dfc8'; ctx.font='15px "Courier New",monospace';
+    ctx.fillStyle='#e8dfc8'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillText('PAUSE',52,41);
   } else if (label==='SCAN'){
     ctx.fillStyle='#7fb8ae'; ctx.fillRect(32,27,5,13); ctx.fillRect(41,27,5,13);
-    ctx.fillStyle='#bfe4dc'; ctx.font='15px "Courier New",monospace';
+    ctx.fillStyle='#bfe4dc'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillText('SCAN',52,41);
   } else {
     ctx.fillStyle='#d84a38'; ctx.beginPath(); ctx.arc(38,35,5,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#e8dfc8'; ctx.font='15px "Courier New",monospace';
+    ctx.fillStyle='#e8dfc8'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillText('REC',52,41);
   }
   // battery
@@ -3257,12 +3267,12 @@ function drawCameraOverlay(ctx,t,timecode,label='REC',showStamp=true,focusBracke
   ctx.fillRect(CW-36,31,4,5);
   // date / timecode
   if (showStamp){
-    ctx.fillStyle='rgba(232,223,200,.78)'; ctx.font='13px "Courier New",monospace';
+    ctx.fillStyle='rgba(232,223,200,.78)'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillText('2003.08.17',22,CH-22);
     ctx.textAlign='right';
     ctx.fillText(timecode,CW-22,CH-22);
     ctx.textAlign='left';
-    ctx.fillStyle='rgba(232,223,200,.35)'; ctx.font='10px "Courier New",monospace';
+    ctx.fillStyle='rgba(232,223,200,.35)'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillText('SONY  DCR-VX2000',22,CH-40);
   }
   ctx.restore();
@@ -3274,7 +3284,7 @@ function drawFootageBadge(ctx){
   const text='PLACEHOLDER FOOTAGE · 占位素材';
   const bx=42, by=CH-78;
   ctx.save();
-  ctx.font='10px "Courier New","PingFang SC","Hiragino Sans GB",monospace';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   const tw=Math.ceil(ctx.measureText(text).width);
   ctx.fillStyle='rgba(0,0,0,.46)';
   ctx.fillRect(bx,by,tw+16,18);
@@ -3286,6 +3296,7 @@ function drawVideoFrame(ctx){
   if (!dvCtx || !dvVideo || dvVideo.readyState<2) return false;
   try{
     dvCtx.drawImage(dvVideo,0,0,dvVideoCanvas.width,dvVideoCanvas.height);
+    if (camLockOn()) pixelateLayer(dvVideoCanvas,false);
     videoDrewFrame=true;
     return true;
   }catch(e){
@@ -5412,9 +5423,9 @@ function drawSplicer(ctx,t){
   r(ctx,px,py,1,ph,'#4a2620'); r(ctx,px+pw-1,py,1,ph,'#4a2620');
   r(ctx,px+14,py+34,pw-28,1,'rgba(216,170,130,.22)');
   // header
-  ctx.fillStyle='#c8a478'; ctx.font='13px "Songti SC",serif';
+  ctx.fillStyle='#c8a478'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillText('接　带',px+16,py+26);
-  ctx.fillStyle='rgba(200,180,150,.45)'; ctx.font='9px "Courier New",monospace';
+  ctx.fillStyle='rgba(200,180,150,.45)'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillText('23:06 — 23:29',px+92,py+25);
   // magnifier frame: the two halves of the cut frame
   const mx=px+pw/2-58, my=py+42, mw=116, mh=70;
@@ -5462,7 +5473,7 @@ function drawSplicer(ctx,t){
   r(ctx,head-11,ty-11,22,2,aligned?'rgba(150,220,190,.75)':'rgba(240,224,200,.45)');
   r(ctx,head-11,ty+21,22,2,aligned?'rgba(150,220,190,.75)':'rgba(240,224,200,.45)');
   // readout
-  ctx.font='10px "Courier New",monospace';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillStyle=aligned?'#9fd8c0':'rgba(232,214,190,.7)';
   const pct=(off*100);
   ctx.fillText(aligned?'SEAM OK':('OFFSET '+(pct>0?'+':'')+pct.toFixed(0)+'%'),px+pw-104,py+ph-26);
@@ -5868,21 +5879,21 @@ function renderCameraScan(ctx,t){
   }
   if (!target){
     ctx.save();
-    ctx.font='13px "Courier New","PingFang SC",monospace';
+    ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillStyle='rgba(210,240,232,.8)';
     ctx.textAlign='center';
     ctx.fillText('没有对准',CW/2,CH/2-10);
-    ctx.font='10px "PingFang SC",sans-serif';
+    ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillStyle='rgba(210,240,232,.5)';
     ctx.fillText('靠近香炉、水碗或门框，再举起 DV。',CW/2,CH/2+14);
     ctx.restore();
   } else if (done){
     ctx.save();
-    ctx.font='11px "Courier New","PingFang SC",monospace';
+    ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillStyle='rgba(170,225,212,.82)';
     const label={incense:'香 3',bowl:'水 左',thread:'线 高'}[target];
     ctx.fillText(label,40,CH-120);
-    ctx.font='9px "PingFang SC",sans-serif';
+    ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillStyle='rgba(170,225,212,.5)';
     ctx.fillText('已显影',40,CH-102);
     ctx.restore();
@@ -5890,7 +5901,7 @@ function renderCameraScan(ctx,t){
   // develop bar
   const pct=target?Math.min(100,Math.round(state.scanT/1.2*100)):0;
   ctx.save();
-  ctx.font='10px "Courier New",monospace';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillStyle='rgba(210,240,232,.65)';
   ctx.fillText('显影',44,CH-74);
   ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(84,CH-82,220,8);
@@ -5900,7 +5911,7 @@ function renderCameraScan(ctx,t){
   ctx.fillText(pct+'%',314,CH-74);
   ctx.restore();
   ctx.save();
-  ctx.font='10px "Courier New",monospace';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.textAlign='right';
   ctx.fillStyle='rgba(210,240,232,.5)';
   const n=state.chapter===3?(state.hunt?state.hunt.count:0):Object.values(state.photos).filter(Boolean).length;
@@ -5930,15 +5941,15 @@ function renderHideScan(ctx,t){
   ctx.fillRect(px-7,240,1,1); ctx.fillRect(px+6,240,1,1);
   ctx.restore();
   ctx.save();
-  ctx.font='11px "Courier New","PingFang SC",monospace';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillStyle='rgba(170,225,212,.85)';
   ctx.fillText('她正看着'+HIDE_SPOTS[h.facing].label,40,CH-120);
-  ctx.font='9px "PingFang SC",sans-serif';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillStyle='rgba(170,225,212,.55)';
   ctx.fillText('松开放下，躲到另外两个地方之一。',40,CH-102);
   ctx.restore();
   ctx.save();
-  ctx.font='10px "Courier New",monospace';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.textAlign='right';
   ctx.fillStyle='rgba(210,240,232,.65)';
   ctx.fillText('第 '+(h.round+1)+'/4 轮　'+Math.max(0,h.remaining).toFixed(1)+'s',CW-44,CH-74);
@@ -5977,15 +5988,15 @@ function renderHuntScan(ctx,t){
   ctx.fillRect(px-9,py-52,1,1); ctx.fillRect(px-2,py-52,1,1);
   ctx.restore();
   ctx.save();
-  ctx.font='11px "Courier New","PingFang SC",monospace';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillStyle='rgba(170,225,212,.82)';
   ctx.fillText(state.chapter===2?('取景器：'+huntViewHint(h.pos)):'取景器：她在'+HIDE_SPOTS[h.pos].label,40,CH-120);
-  ctx.font='9px "PingFang SC",sans-serif';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillStyle='rgba(170,225,212,.55)';
   ctx.fillText(state.chapter===2?'放下 DV，在房间里找同一处。':'走近她，按 L 快门。',40,CH-102);
   ctx.restore();
   ctx.save();
-  ctx.font='10px "Courier New",monospace';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.textAlign='right';
   ctx.fillStyle='rgba(210,240,232,.55)';
   ctx.fillText(state.chapter===3?('PHOTO '+h.count+'/3'):'FIND '+h.count+'/4',CW-44,CH-74);
@@ -6012,23 +6023,23 @@ function drawReviewQuiz(ctx){
   ctx.save();
   ctx.fillStyle='rgba(6,7,6,.93)'; ctx.fillRect(x,y,w,h);
   ctx.strokeStyle='rgba(192,74,56,.45)'; ctx.strokeRect(x+.5,y+.5,w-1,h-1);
-  ctx.fillStyle='#b8873f'; ctx.font='9px "Courier New",monospace';
+  ctx.fillStyle='#b8873f'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillText('回看校验 · 23:06',x+16,y+20);
-  ctx.fillStyle='#e8dfc8'; ctx.font='17px "Songti SC","STSong",serif';
+  ctx.fillStyle='#e8dfc8'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
   if (!q.locked){
     const item=REVIEW_QUIZ[q.step];
     ctx.fillText(item?item.q:'',x+16,y+46);
-    ctx.font='12px "Courier New","PingFang SC",monospace';
+    ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillStyle='rgba(216,201,168,.8)';
     if (item) ctx.fillText(item.opts.map((o,i)=>(i+1)+'  '+o).join('　　'),x+18,y+78);
-    ctx.fillStyle='rgba(216,201,168,.4)'; ctx.font='10px "PingFang SC",sans-serif';
+    ctx.fillStyle='rgba(216,201,168,.4)'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillText('按数字键选择。选错会跳带。',x+18,y+102);
   } else {
     ctx.fillText('磁带 1999 · 缺帧：白胶布的手',x+16,y+46);
-    ctx.fillStyle='rgba(160,220,200,.75)'; ctx.font='12px "Courier New","PingFang SC",monospace';
+    ctx.fillStyle='rgba(160,220,200,.75)'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillText('拖动重建条对齐 23:06；Q / E 微调。',x+18,y+78);
   }
-  ctx.fillStyle='rgba(192,74,56,.65)'; ctx.font='9px "Courier New",monospace';
+  ctx.fillStyle='rgba(192,74,56,.65)'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillText('WRONG '+q.wrong,x+w-80,y+20);
   ctx.restore();
 }
@@ -6039,7 +6050,7 @@ function drawReview(ctx,t){
     ctx.fillStyle='#050506'; ctx.fillRect(0,0,CW,CH);
     if (!drawFaceCover(ctx,CW,CH,{frame:state.lookFrame||0})){
       ctx.fillStyle='#12130f'; ctx.fillRect(0,0,CW,CH);
-      ctx.fillStyle='#d84a38'; ctx.font='24px "Courier New",monospace';
+      ctx.fillStyle='#d84a38'; ctx.font='24px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('NO SIGNAL',CW/2-90,CH/2);
       drawCameraOverlay(ctx,t,'00:41:12','PAUSE',false);
       return;
@@ -6061,9 +6072,9 @@ function drawReview(ctx,t){
     ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,CH-78,CW,78);
     ctx.fillStyle='#d84a38'; ctx.fillRect(38,CH-56,10,30);
     ctx.fillStyle='#d84a38'; ctx.fillRect(56,CH-56,10,30);
-    ctx.fillStyle='#e8dfc8'; ctx.font='16px "Courier New",monospace';
+    ctx.fillStyle='#e8dfc8'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillText('PAUSE',78,CH-34);
-    ctx.fillStyle='#8d8574'; ctx.font='12px "Courier New",monospace';
+    ctx.fillStyle='#8d8574'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
     ctx.fillText('一帧被暂停的素材 · 00:41:'+String(12+(state.lookFrame||0)).padStart(2,'0')+'　A / D 逐帧',170,CH-34);
     drawCameraOverlay(ctx,t,'00:41:12','PAUSE',false);
     return;
@@ -6075,11 +6086,11 @@ function drawReview(ctx,t){
       ctx.fillStyle='#000'; ctx.fillRect(0,0,CW/2,CH);
       drawNoise(ctx,0,0,CW/2,CH,700);
       for (let i=0;i<5;i++){ ctx.fillStyle='rgba(200,200,190,.05)'; ctx.fillRect(0,60+i*70,CW/2,2); }
-      ctx.fillStyle='#d84a38'; ctx.font='15px "Courier New",monospace';
+      ctx.fillStyle='#d84a38'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('NO SIGNAL',34,104);
-      ctx.fillStyle='#e8dfc8'; ctx.font='13px "Courier New",monospace';
+      ctx.fillStyle='#e8dfc8'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('00:18:07—00:41:11',34,132);
-      ctx.fillStyle='#8d8574'; ctx.font='12px "Courier New",monospace';
+      ctx.fillStyle='#8d8574'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('23:06 空白',34,156);
       ctx.fillText('素材 / 徐英子的 DV',34,CH-30);
       // right: reconstruction
@@ -6090,15 +6101,15 @@ function drawReview(ctx,t){
       ctx.drawImage(reviewPixel,CW/2+9,128,rw,rh);
       ctx.strokeStyle='rgba(216,201,168,.30)'; ctx.lineWidth=1;
       ctx.strokeRect(CW/2+9,128,rw,rh);
-      ctx.fillStyle='#e8dfc8'; ctx.font='13px "Courier New",monospace';
+      ctx.fillStyle='#e8dfc8'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('重建 / 徐英子的记忆',CW/2+22,52);
-      ctx.fillStyle='#8d8574'; ctx.font='11px "Courier New",monospace';
+      ctx.fillStyle='#8d8574'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('素材里没有她的脸；重建替她补了一张。',CW/2+22,78);
       if (state.reconAligned){
-        ctx.fillStyle='#c04a38'; ctx.font='12px "Courier New",monospace';
+        ctx.fillStyle='#c04a38'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
         ctx.fillText('补上的 23:06',CW/2+22,128+rh+20);
       } else {
-        ctx.fillStyle='#5d574a'; ctx.font='11px "Courier New",monospace';
+        ctx.fillStyle='#5d574a'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
         ctx.fillText('拖动重建条，对齐时间码',CW/2+22,128+rh+20);
       }
       // divider
@@ -6112,13 +6123,13 @@ function drawReview(ctx,t){
       ctx.fillStyle='rgba(180,30,20,.18)'; ctx.fillRect(0,CH*0.47,CW,4);
       ctx.fillStyle='rgba(220,220,210,.45)'; ctx.fillRect(0,CH*0.47+5,CW,1);
       // large blank marker
-      ctx.fillStyle='#d84a38'; ctx.font='20px "Courier New",monospace';
+      ctx.fillStyle='#d84a38'; ctx.font='24px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('NO SIGNAL',CW/2-86,CH/2-72);
-      ctx.fillStyle='#e8dfc8'; ctx.font='52px "Courier New",monospace';
+      ctx.fillStyle='#e8dfc8'; ctx.font='48px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('23:06',CW/2-86,CH/2-16);
-      ctx.fillStyle='#8d8574'; ctx.font='15px "Courier New",monospace';
+      ctx.fillStyle='#8d8574'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('空白 / 00:18:07—00:41:11',CW/2-86,CH/2+22);
-      ctx.fillStyle='#5d574a'; ctx.font='11px "Courier New",monospace';
+      ctx.fillStyle='#5d574a'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
       ctx.fillText('磁带 02 · 徐英子的 DV',CW/2-86,CH/2+48);
       drawCameraOverlay(ctx,t,reviewTimecode(),'PLAY',false);
     }
@@ -6153,13 +6164,13 @@ function drawRitualClue(ctx){
   ctx.strokeStyle=damaged?'rgba(192,74,56,.62)':'rgba(216,201,168,.36)'; ctx.lineWidth=1;
   ctx.strokeRect(x+.5,y+.5,w-1,h-1);
   ctx.fillStyle=damaged?'#d84a38':'#c04a38'; ctx.fillRect(x+16,y+16,4,28);
-  ctx.fillStyle='#b8873f'; ctx.font='9px "Courier New",monospace';
+  ctx.fillStyle='#b8873f'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillText(damaged?'旧带 · 信号损坏':'旧带 · 18:06',x+30,y+24);
-  ctx.fillStyle=damaged?'#d84a38':'#e8dfc8'; ctx.font='18px "Songti SC","STSong",serif';
+  ctx.fillStyle=damaged?'#d84a38':'#e8dfc8'; ctx.font='24px "ArkPixel","FusionPixel",monospace';
   ctx.fillText(title,x+30,y+48);
   ctx.strokeStyle='rgba(216,201,168,.18)'; ctx.beginPath();
   ctx.moveTo(x+16,y+62); ctx.lineTo(x+w-16,y+62); ctx.stroke();
-  ctx.font='12px "Courier New","PingFang SC",monospace';
+  ctx.font='12px "ArkPixel","FusionPixel",monospace';
   for (let i=0;i<rows.length;i++){
     const yy=y+86+i*26;
     ctx.fillStyle='rgba(216,201,168,.55)'; ctx.fillText(rows[i][0],x+22,yy);
@@ -6168,16 +6179,16 @@ function drawRitualClue(ctx){
     if (i===0){
       const n=loop===0?2:0;
       for (let k=0;k<n;k++) ctx.fillRect(x+58+k*4,yy-10,1,10);
-      if (!n){ ctx.font='16px "Courier New",monospace'; ctx.fillText('×',x+58,yy); ctx.font='12px "Courier New","PingFang SC",monospace'; }
+      if (!n){ ctx.font='12px "ArkPixel","FusionPixel",monospace'; ctx.fillText('×',x+58,yy); ctx.font='12px "ArkPixel","FusionPixel",monospace'; }
     }
     if (i===1){
       if (loop===0){ ctx.strokeStyle='#c04a38'; ctx.beginPath(); ctx.arc(x+60,yy-5,5,0,Math.PI); ctx.stroke(); }
       else if (mercy){ ctx.strokeStyle='#d84a38'; ctx.beginPath(); ctx.arc(x+56,yy-5,5,0,Math.PI); ctx.stroke(); }
-      else { ctx.font='16px "Courier New",monospace'; ctx.fillText('×',x+58,yy); ctx.font='12px "Courier New","PingFang SC",monospace'; }
+      else { ctx.font='12px "ArkPixel","FusionPixel",monospace'; ctx.fillText('×',x+58,yy); ctx.font='12px "ArkPixel","FusionPixel",monospace'; }
     }
     if (i===2){
       if (loop===0){ ctx.fillRect(x+59,yy-6,2,2); ctx.fillRect(x+60,yy-4,1,5); }
-      else { ctx.font='16px "Courier New",monospace'; ctx.fillText('×',x+58,yy); ctx.font='12px "Courier New","PingFang SC",monospace'; }
+      else { ctx.font='12px "ArkPixel","FusionPixel",monospace'; ctx.fillText('×',x+58,yy); ctx.font='12px "ArkPixel","FusionPixel",monospace'; }
     }
   }
   if (damaged){
@@ -6186,10 +6197,10 @@ function drawRitualClue(ctx){
     ctx.strokeStyle='rgba(7,8,6,.9)'; ctx.lineWidth=4;
     ctx.beginPath(); ctx.moveTo(x+10,y+114); ctx.lineTo(x+w-12,y+96); ctx.stroke();
   }
-  ctx.fillStyle='rgba(216,201,168,.5)'; ctx.font='10px "PingFang SC",sans-serif';
+  ctx.fillStyle='rgba(216,201,168,.5)'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillText(note,x+22,y+176);
   ctx.strokeStyle='rgba(192,74,56,.55)'; ctx.strokeRect(x+w-46,y+h-40,28,22);
-  ctx.fillStyle='rgba(192,74,56,.8)'; ctx.font='12px "Songti SC",serif';
+  ctx.fillStyle='rgba(192,74,56,.8)'; ctx.font='12px "ArkPixel","FusionPixel",monospace';
   ctx.fillText('仪',x+w-38,y+h-24);
   ctx.restore();
 }
@@ -6517,9 +6528,115 @@ function advanceMovement(dt){
   }
 }
 // =========================================================
+//  PALETTE LOCK  (last pass of every frame on the 480x270 canvas)
+// =========================================================
+// Everything drawn above (gradients, alpha, blend modes, anti-aliased arcs,
+// pasted bitmaps) is snapped to PAL here with a 4x4 ordered (Bayer) dither, so
+// soft ramps become regular pixel dots instead of thousands of in-between
+// colours. RGB 5-5-5 -> PAL index is precomputed once (32 KB) so the per-frame
+// cost is one getImageData/putImageData plus a table lookup per pixel.
+// 24-colour dark horror palette, picked from PAL (k-medoids over PAL, then
+// hand-tuned toward the shadows): 9 cold darks, the full 5-step red ramp,
+// 5 wood/skin, 3 paper/bone, 2 flame. Default lock palette; 'full' = all PAL.
+const PAL24=['#020304','#0b0a08','#161c21','#20282e','#2a3237','#41505a','#102329','#1e3a42','#6a9aa0',
+  '#1e0506','#3a0a0c','#5a1215','#8a2224','#b83a30',
+  '#18100c','#39281a','#5a3a2c','#8a5f4a','#b08062',
+  '#665f52','#a89f8a','#d8cfb8','#d98a2e','#f2b85a'];
+function makeLock(hex){
+  const n=hex.length, pr=new Uint8Array(n), pg=new Uint8Array(n), pb=new Uint8Array(n);
+  const pal32=new Uint32Array(n);
+  hex.forEach((h,i)=>{
+    const v=parseInt(h.slice(1),16);
+    pr[i]=v>>16&255; pg[i]=v>>8&255; pb[i]=v&255;
+    pal32[i]=(255<<24)|(pb[i]<<16)|(pg[i]<<8)|pr[i];
+  });
+  const lut=new Uint8Array(32768);
+  for (let r=0;r<32;r++) for (let g=0;g<32;g++) for (let b=0;b<32;b++){
+    const R=r*8+4, G=g*8+4, B=b*8+4;
+    let best=0, bd=1e9;
+    for (let i=0;i<n;i++){
+      const dr=R-pr[i], dg=G-pg[i], db=B-pb[i];
+      const d=2*dr*dr+4*dg*dg+3*db*db;
+      if (d<bd){ bd=d; best=i; }
+    }
+    lut[(r<<10)|(g<<5)|b]=best;
+  }
+  // coarser palette -> wider dither so ramps still read as dot patterns
+  const AMP=n<=32?28:14, bay=new Int16Array(16);
+  for (let i=0;i<16;i++) bay[i]=Math.round(((BAYER4[i]+0.5)/16-0.5)*AMP);
+  return {n,lut,pal32,bay};
+}
+const PAL_LOCKS={
+  dark:makeLock(PAL24),
+  full:makeLock([...new Set(Object.values(PAL).map(c=>c.toLowerCase()))]),
+};
+const PAL_LOCK={lastMs:0,avgMs:0,frames:0,camMs:0,get cur(){ return PAL_LOCKS[state.palMode]||PAL_LOCKS.dark; }};
+// keepAlpha: transparent stays transparent (overlay canvases), alpha snapped to 0/255
+function lockBuffer(img,W,H,keepAlpha){
+  const L=PAL_LOCK.cur, px=new Uint32Array(img.data.buffer);
+  const lut=L.lut, pal=L.pal32, bay=L.bay;
+  let i=0;
+  for (let y=0;y<H;y++){
+    const row=(y&3)<<2;
+    for (let x=0;x<W;x++,i++){
+      const v=px[i], a=v>>>24;
+      if (a<(keepAlpha?128:1)){ px[i]=keepAlpha?0:pal[0]; continue; }
+      const d=bay[row|(x&3)];
+      let r=(v&255)+d, gg=(v>>8&255)+d, b=(v>>16&255)+d;
+      r=r<0?0:r>255?255:r; gg=gg<0?0:gg>255?255:gg; b=b<0?0:b>255?255:b;
+      px[i]=pal[lut[((r>>3)<<10)|((gg>>3)<<5)|(b>>3)]];
+    }
+  }
+}
+function lockPalette(g){
+  const t0=performance.now();
+  const img=g.getImageData(0,0,PW,PH);
+  lockBuffer(img,PW,PH,false);
+  g.putImageData(img,0,0);
+  const ms=performance.now()-t0;
+  PAL_LOCK.lastMs=ms; PAL_LOCK.frames++;
+  PAL_LOCK.avgMs+= (ms-PAL_LOCK.avgMs)/Math.min(PAL_LOCK.frames,120);
+}
+// Camera / DV layers: downsample to a 360x270 offscreen buffer (area average,
+// so detail collapses into real fat pixels), lock to the palette with the same
+// Bayer dither, then blow back up nearest-neighbour by an integer factor.
+// Under file:// the close-up JPG / video can taint the canvas; getImageData
+// then throws and we keep the low-res nearest upscale without the lock.
+const CAM_LW=360, CAM_LH=270; // 4:3 on the same 270-row grid as #pixel, so on screen each cam pixel = k x k
+const camPix=document.createElement('canvas'); camPix.width=CAM_LW; camPix.height=CAM_LH;
+const camPixCtx=camPix.getContext('2d',{willReadFrequently:true});
+function pixelateLayer(cv,keepAlpha){
+  const t0=performance.now();
+  const g=cv.getContext('2d');
+  camPixCtx.setTransform(1,0,0,1,0,0);
+  camPixCtx.clearRect(0,0,CAM_LW,CAM_LH);
+  camPixCtx.imageSmoothingEnabled=true; camPixCtx.imageSmoothingQuality='medium';
+  camPixCtx.drawImage(cv,0,0,cv.width,cv.height,0,0,CAM_LW,CAM_LH);
+  try{
+    const img=camPixCtx.getImageData(0,0,CAM_LW,CAM_LH);
+    lockBuffer(img,CAM_LW,CAM_LH,keepAlpha);
+    camPixCtx.putImageData(img,0,0);
+  }catch(e){}
+  g.save(); g.setTransform(1,0,0,1,0,0); g.imageSmoothingEnabled=false;
+  g.clearRect(0,0,cv.width,cv.height);
+  g.drawImage(camPix,0,0,CAM_LW,CAM_LH,0,0,cv.width,cv.height); // on screen the canvas is shown 360k x 270k, so nearest-sampled = exact k x k blocks
+  g.restore();
+  PAL_LOCK.camMs=performance.now()-t0;
+}
+function camLockOn(){ return state.paletteLock && !FUZZ_ACTIVE && !window.__noCamLock; }
+window.__palLock=PAL_LOCK; window.__lockPalette=lockPalette; window.__pixelateLayer=pixelateLayer;
+function frame(now){
+  frameBody(now);
+  // Only lock frames that were actually redrawn this tick (paused / title /
+  // review frames are left alone so the lock is never applied twice).
+  if (state.paletteLock && state.started && !state.paused && !state.review && !window.__stopLoop && !FUZZ_ACTIVE){
+    lockPalette(pctx);
+  }
+}
+// =========================================================
 //  LOOP
 // =========================================================
-function frame(now){
+function frameBody(now){
   if (window.__stopLoop) return;
   const dt=Math.min(0.05,(now-state.last)/1000||0);
   if (FUZZ_ACTIVE){ requestAnimationFrame(frame); return; }
@@ -6570,6 +6687,7 @@ function frame(now){
       pctx.clearRect(0,0,PW,PH);
       pctx.fillStyle='#000'; pctx.fillRect(0,0,PW,PH);
       drawReview(cctx,state.time);
+      if (camLockOn()) pixelateLayer(camera,true);
       syncCameraOverlay();
       requestAnimationFrame(frame);
       return;
@@ -6610,6 +6728,7 @@ function frame(now){
         }
         cctx.restore();
       }
+      if (state.camera && camLockOn()) pixelateLayer(camera,true);
     } else {
       cctx.clearRect(0,0,CW,CH);
     }
@@ -6832,6 +6951,28 @@ function applyFlashSafe(){
 function toggleFlashSafe(){
   state.flashSafe=!state.flashSafe;
   applyFlashSafe();
+}
+// Pixel palette lock (default on). Kept as a setting for low-end machines and A/B.
+function applyPaletteLock(){
+  const btn=document.getElementById('pausePalBtn');
+  if (btn) btn.textContent=!state.paletteLock?'像素锁色：关':state.palMode==='full'?'像素锁色：73 色':'像素锁色：24 色';
+  try{ localStorage.setItem('ji.paletteLock',state.paletteLock?'1':'0'); localStorage.setItem('ji.palMode',state.palMode); }catch(e){}
+}
+// cycle 24 -> 73 -> off -> 24
+function togglePaletteLock(){
+  if (!state.paletteLock){ state.paletteLock=true; state.palMode='dark'; }
+  else if (state.palMode==='dark') state.palMode='full';
+  else state.paletteLock=false;
+  applyPaletteLock();
+}
+try{ if (localStorage.getItem('ji.paletteLock')==='0') state.paletteLock=false; if (localStorage.getItem('ji.palMode')==='full') state.palMode='full'; }catch(e){}
+try{ const q=new URLSearchParams(location.search); const v=q.get('pallock'); if (v==='0') state.paletteLock=false; if (v==='1') state.paletteLock=true; if (q.get('pal')==='full') state.palMode='full'; if (q.get('pal')==='dark') state.palMode='dark'; }catch(e){}
+applyPaletteLock();
+{ const b=document.getElementById('pausePalBtn'); if (b) b.addEventListener('click',()=>togglePaletteLock()); }
+applyPaletteLock();
+if (document.fonts && document.fonts.load){
+  document.fonts.load('12px "FusionPixel"','祭').catch(()=>{});
+  document.fonts.load('12px "ArkPixel"','A').catch(()=>{});
 }
 const pauseFlashBtn=document.getElementById('pauseFlashBtn');
 if (pauseFlashBtn) pauseFlashBtn.addEventListener('click',()=>{ toggleFlashSafe(); });

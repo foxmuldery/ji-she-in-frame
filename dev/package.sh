@@ -23,12 +23,13 @@ cp README.md TRIAL_PLAY.md RIGHTS.md RELEASE_CHECKLIST.md "$PKG/"
 cp vendor -R "$PKG/vendor" 2>/dev/null || mkdir -p "$PKG/vendor" && cp -R vendor/. "$PKG/vendor/"
 
 # runtime assets
-mkdir -p "$PKG/assets/audio" "$PKG/assets/images" "$PKG/assets/video"
+mkdir -p "$PKG/assets/audio" "$PKG/assets/images" "$PKG/assets/video" "$PKG/assets/fonts"
 cp assets/audio/*.mp3 assets/audio/*.wav "$PKG/assets/audio/" 2>/dev/null || true
 cp assets/audio/PROMPTS_SOUND_ONLY.md assets/audio/AUDIO_PRODUCTION_HANDOFF.md \
    assets/audio/AUDIO_ASSET_DELIVERY_REPORT.md "$PKG/assets/audio/" 2>/dev/null || true
 cp assets/images/*.jpg assets/images/*.svg "$PKG/assets/images/" 2>/dev/null || true
 cp assets/video/*.mp4 "$PKG/assets/video/" 2>/dev/null || true
+cp -R assets/fonts/. "$PKG/assets/fonts/"
 cp assets/poster_data.js assets/face_data.js assets/CREDITS.md assets/MANIFEST.json "$PKG/assets/" 2>/dev/null || true
 
 # honest content warning + credits inside the package

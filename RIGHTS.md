@@ -14,7 +14,7 @@
 ## 2. 第三方
 
 - RetroZone ShaderOverlay：MIT，见 `vendor/retrozone-LICENSE.txt`。
-- 字体：仅使用系统字体，未嵌入字体文件。
+- 字体：嵌入 Fusion Pixel Font 12px（中文，`assets/fonts/fusion-pixel-12px-proportional-zh_hans.otf.woff2`）与 Ark Pixel Font 12px monospaced（英数字，`assets/fonts/ark-pixel-12px-monospaced-latin.otf.woff2`），均为 TakWolf 作品，SIL Open Font License 1.1，可商用、可随游戏分发（不可单独出售字体）。许可证全文见 `assets/fonts/LICENSES/`（含 Fusion Pixel 上游 Galmuri / Cubic 11 / Ark Pixel 的许可）。
 
 ## 3. 占位 / AI 生成素材
 
