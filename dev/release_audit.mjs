@@ -152,6 +152,9 @@ if (existsSync(join(ROOT,'store/itch_description.html'))){
     broken.slice(0,4).join(', ')||srcs.length+' images');
   check('store description covers the second act', /暗房/.test(html) && /10_act2_darkroom\.png/.test(html));
   check('store description has no five-pass miscount', !/四遍同一间房/.test(html));
+  check('store description counts match the four-find / four-hide build',
+    /找到四次/.test(html) && /躲开 4 轮/.test(html) && !/找到三次/.test(html) && !/躲开 3 轮/.test(html));
+  check('store description has no upload instruction in the body', !/上传到 itch 后/.test(html));
   check('store description states content warnings', /内容提示/.test(html));
   // Screenshots are the first thing a shopper sees; a 1024x640 shot in a
   // 1280x720 page looks like a bug, so pin the size.

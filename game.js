@@ -3570,6 +3570,7 @@ function openCase(){
   caseEl.classList.remove('hidden');
   if (caseBtn) caseBtn.classList.add('hidden');
   renderCase();
+  syncShelfInert();
 }
 function closeCase(){
   if (!state.caseOpen) return;
@@ -3577,6 +3578,7 @@ function closeCase(){
   document.body.classList.remove('caseOpen');
   if (caseEl) caseEl.classList.add('hidden');
   updateRitualHUD();
+  syncShelfInert();
 }
 function ritualNearest(){
   const r=state.ritual;
@@ -5939,7 +5941,7 @@ function renderHideScan(ctx,t){
   ctx.font='10px "Courier New",monospace';
   ctx.textAlign='right';
   ctx.fillStyle='rgba(210,240,232,.65)';
-  ctx.fillText('第 '+(h.round+1)+'/3 轮　'+Math.max(0,h.remaining).toFixed(1)+'s',CW-44,CH-74);
+  ctx.fillText('第 '+(h.round+1)+'/4 轮　'+Math.max(0,h.remaining).toFixed(1)+'s',CW-44,CH-74);
   ctx.restore();
   drawCameraOverlay(ctx,t,'00:00:00','SCAN',false,false);
   drawScanlines(ctx,CW,CH,.055);
@@ -5986,7 +5988,7 @@ function renderHuntScan(ctx,t){
   ctx.font='10px "Courier New",monospace';
   ctx.textAlign='right';
   ctx.fillStyle='rgba(210,240,232,.55)';
-  ctx.fillText(state.chapter===3?('PHOTO '+h.count+'/3'):'FIND '+h.count+'/3',CW-44,CH-74);
+  ctx.fillText(state.chapter===3?('PHOTO '+h.count+'/3'):'FIND '+h.count+'/4',CW-44,CH-74);
   ctx.restore();
   drawCameraOverlay(ctx,t,'00:00:00','SCAN',false,false);
   drawScanlines(ctx,CW,CH,.055);
@@ -6322,6 +6324,17 @@ if (new URLSearchParams(location.search).get('dump')==='1'){
     document.title='DUMP '+JSON.stringify(d);
   },500);
 }
+// A focused button, link or field already has a job for Enter and Space
+// (open credits, return to the title, type a note). The global "start / restart"
+// shortcut must not steal that: Tab to 制作名单 and press Enter was starting
+// the game instead of opening the page.
+function keyHitsControl(e){
+  if (e.code!=='Enter' && e.code!=='NumpadEnter' && e.code!=='Space') return false;
+  const t=document.activeElement;
+  if (!t || t===document.body || t===document.documentElement) return false;
+  const tag=t.tagName;
+  return tag==='BUTTON' || tag==='A' || tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT';
+}
 window.addEventListener('keydown',(e)=>{
   // Touch-only gate: it is a full-screen page, so swallow game keys until the
   // player acknowledges it (Enter / Esc / Space, or the button).
@@ -6336,6 +6349,7 @@ window.addEventListener('keydown',(e)=>{
   if (state.ended && !endEl.classList.contains('hidden')
       && (creditsEl===null || creditsEl.classList.contains('hidden'))){
     if (e.code==='Enter'||e.code==='NumpadEnter'||e.code==='Space'){
+      if (keyHitsControl(e)) return;
       e.preventDefault(); ensureAudio(); startGame(false); return;
     }
     if (e.code==='KeyC'){ e.preventDefault(); showCredits('end'); return; }
@@ -6344,9 +6358,13 @@ window.addEventListener('keydown',(e)=>{
   if (!state.started && !startEl.classList.contains('hidden')
       && (creditsEl===null || creditsEl.classList.contains('hidden'))){
     if (e.code==='Enter'||e.code==='NumpadEnter'||e.code==='Space'){
+      if (keyHitsControl(e)) return;
       e.preventDefault(); ensureAudio(); startGame(false); return;
     }
   }
+  // The pause card promises M. R stays a gameplay key: opening the tape from
+  // under the pause card would stack two full-screen pages.
+  if (state.paused && e.code==='KeyM'){ e.preventDefault(); toggleMute(); return; }
   if (state.paused && e.code!=='Escape') return;
   // Case board: Tab opens/closes; Esc closes before pause.
   if (e.code==='Tab' && state.started && !state.ended){
@@ -6659,6 +6677,7 @@ function reset(){
   stopDrone();
   updateVideoLayer();
   stopCues();
+  syncShelfInert();
 }
 function startGame(silent=false){
   reset();
@@ -6707,10 +6726,28 @@ function showCredits(from){
   creditsFrom=from||'title';
   if (creditsFrom==='pause') pauseEl.classList.add('hidden');
   creditsEl.classList.remove('hidden');
+  syncShelfInert();
+  const back=document.getElementById('creditsBack');
+  if (back) back.focus();
 }
 function hideCredits(){
   creditsEl.classList.add('hidden');
   if (creditsFrom==='pause' && state.paused) pauseEl.classList.remove('hidden');
+  syncShelfInert();
+}
+// Full-screen pages sit on top of the HUD and of each other. Anything underneath
+// stays in the tab order unless it is marked inert, so the first Tabs on the
+// title landed on the pause / mute / DV buttons the title was covering.
+function syncShelfInert(){
+  const open=(el)=>!!(el && !el.classList.contains('hidden'));
+  const credits=open(creditsEl);
+  const desk=open(deskEl);
+  const shelf=open(startEl)||open(endEl)||open(pauseEl)||credits||desk||!!state.caseOpen;
+  const hud=document.getElementById('hud');
+  if (hud) hud.inert=shelf;
+  if (startEl) startEl.inert=credits||desk;
+  if (pauseEl) pauseEl.inert=credits;
+  if (endEl) endEl.inert=credits;
 }
 function pauseGame(){
   if (state.transition){ state.pauseQueued=true; return; }
@@ -6733,6 +6770,7 @@ function pauseGame(){
   updateVideoLayer();
   syncCameraOverlay();
   if (pauseBtn) pauseBtn.textContent='暂停中 · Esc';
+  syncShelfInert();
 }
 function resumeGame(){
   if (!state.paused) return;
@@ -6759,6 +6797,7 @@ function resumeGame(){
   }
   updateVideoLayer();
   syncCameraOverlay();
+  syncShelfInert();
 }
 function returnToTitle(){
   stopAmbience(0.5);
@@ -6772,6 +6811,7 @@ function returnToTitle(){
   startEl.classList.remove('hidden');
   if (pauseBtn) pauseBtn.textContent='暂停 · Esc';
   updateMuteLabels();
+  syncShelfInert();
 }
 if (pauseBtn) pauseBtn.addEventListener('click',()=>{ ensureAudio(); if (state.paused) resumeGame(); else pauseGame(); });
 document.getElementById('resumeBtn').addEventListener('click',()=>{ resumeGame(); });
@@ -6846,10 +6886,12 @@ if (TOUCH_ONLY){
 function dismissDesktopGate(){
   if (!deskEl || deskEl.classList.contains('hidden')) return;
   deskEl.classList.add('hidden');
+  syncShelfInert();
 }
 if (deskEl) deskEl.addEventListener('click',(e)=>{
   if (e.target && e.target.id==='deskContinue') dismissDesktopGate();
 });
+syncShelfInert();
 
 // Asset-capture helper: ?clean=1 hides every UI chrome so the iso room can be
 // screenshotted as a clean still for the procedural DV placeholder footage.
@@ -7099,6 +7141,9 @@ async function runTest(){
   pauseGame();
   await sleep(120);
   check('pauseOverlay', state.paused && !pauseEl.classList.contains('hidden'));
+  window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyM',bubbles:true}));
+  check('pauseKeyMutes', state.paused && state.muted && pauseMuteBtn.textContent.includes('关'));
+  window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyM',bubbles:true}));
   showCredits('pause');
   await sleep(80);
   check('pauseCredits', !creditsEl.classList.contains('hidden') && pauseEl.classList.contains('hidden'));
@@ -7126,6 +7171,12 @@ async function runTest(){
   key('Escape');
   await sleep(80);
   check('endCreditsEsc', creditsEl.classList.contains('hidden') && !endEl.classList.contains('hidden'));
+  const endTitleBtn=document.getElementById('endTitleBtn');
+  endTitleBtn.focus();
+  key('Enter');
+  await sleep(80);
+  check('endFocusedEnterStays', state.ended && !endEl.classList.contains('hidden') && endTitleBtn===document.activeElement);
+  endTitleBtn.blur();
   key('Enter');
   await sleep(160);
   check('endEnterRestart', state.started && !state.ended && endEl.classList.contains('hidden') && state.runStart>0);
@@ -7135,6 +7186,12 @@ async function runTest(){
   key('Escape');
   await sleep(160);
   check('endEscToTitle', !state.started && !startEl.classList.contains('hidden'));
+  const titleCreditsBtn=document.getElementById('titleCreditsBtn');
+  titleCreditsBtn.focus();
+  key('Enter');
+  await sleep(80);
+  check('titleFocusedEnterStays', !state.started && !startEl.classList.contains('hidden') && titleCreditsBtn===document.activeElement);
+  titleCreditsBtn.blur();
   key('Enter');
   await sleep(140);
   check('titleEnterStart', state.started && !state.ended && startEl.classList.contains('hidden'));
@@ -7718,10 +7775,24 @@ if (params.get('nointro')==='1'){
     },20);
   }
   // Shelf-chrome screenshots: freeze a real gameplay frame under the overlay.
+  // These must be scheduled before ?advance= fast-forwards the job clock;
+  // a later() registered afterwards is already in the past and never runs.
   if (params.get('shelf')==='pause') later(()=>{
     startGame(true);
     state.wx=9.4; state.wy=3.4; state.talked=true; state.dir='E'; state.front=false;
     prompt(''); pauseGame();
+  },900);
+  if (params.get('shelf')==='credits') later(()=>{
+    showCredits('title');
+    // The player lands on 返回; a store still should not show that focus ring
+    // sitting on a button the card has scrolled to the edge.
+    const back=document.getElementById('creditsBack');
+    if (back) back.blur();
+  },500);
+  if (params.get('shelf')==='pausecredits') later(()=>{
+    startGame(true);
+    state.wx=9.4; state.wy=3.4; state.talked=true; state.dir='E'; state.front=false;
+    prompt(''); pauseGame(); showCredits('pause');
   },900);
   // Headless dumps/screenshots have no real frame loop, so every `later()`
   // above would still be pending when the page is captured. ?advance=<sec>
@@ -7731,12 +7802,6 @@ if (params.get('nointro')==='1'){
     const secs=Math.max(0,Math.min(180,parseFloat(params.get('advance'))||0));
     for (let t=0;t<secs;t+=0.1){ state.time+=0.1; tickJobs(); }
   }
-  if (params.get('shelf')==='credits') later(()=>{ showCredits('title'); },500);
-  if (params.get('shelf')==='pausecredits') later(()=>{
-    startGame(true);
-    state.wx=9.4; state.wy=3.4; state.talked=true; state.dir='E'; state.front=false;
-    prompt(''); pauseGame(); showCredits('pause');
-  },900);
 }
 window.__jiThird={
   audio:{ playCue, startAmbience, stopAmbience },

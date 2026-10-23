@@ -4,7 +4,7 @@
 
 ## 1. 项目
 
-- 本声明对应版本：v2.10.2（见 [`VERSION`](VERSION)）
+- 本声明对应版本：v2.10.3（见 [`VERSION`](VERSION)）
 
 - 标题：《祭：她在画面里》/ SHE IS IN THE FRAME
 - 作者/账号：foxmuldery

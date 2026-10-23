@@ -39,14 +39,14 @@
 | `08_end.png` | 截图 27：结局 |
 | `09_bad_end.png` | 截图 28：坏结局「她替你摆好了。」 |
 | `itch_metadata.md` | 标题、短描述、标签、内容提示等字段 |
-| `itch_description.html` | 可直接粘贴到 itch 富文本编辑器的长描述 |
+| `itch_description.html` | 长描述。图片要先在 itch 后台上传，再把 `src` 换成 itch 的地址；预告片同理，嵌入标签等文件传上去再加。 |
 
 ## 上传顺序建议
 
 1. 封面：`cover.jpg`
 2. 截图：01 → 02 → 03 → 03b → 03c → 03c2 → 03e → 03f → 03g → 03h → 03i → 03j → 03k → 03l → 03m → 03n → 10 → 10b → 03o → 03p → 10c → 03d → 04 → 05 → 06 → 07 → 08 → 09（itch 会按上传顺序排列）
 3. 视频：`trailer_26s.mp4`（标题 → 房间 → DV → 回看断带 → 走廊 → 暗房 → 落版）。要改切点就改 `dev/trailer/trailer.js` 里的 `SHOTS` 再跑一次，画面由真实渲染器逐帧生成，不依赖手录。
-4. 下载包：`../dist/ji-she-in-frame-v2.10.2.zip`（校验见同名 `.sha256`）
+4. 下载包：`../dist/ji-she-in-frame-v2.10.3.zip`（校验见同名 `.sha256`）
 
 ## 截图说明
 

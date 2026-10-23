@@ -15,7 +15,7 @@ She Is in the Frame
 - Made with: HTML5
 - Status: Prototype / vertical slice
 - Release date: 2026-10-22
-- Version: v2.10.2
+- Version: v2.10.3
 
 ## Tags
 horror, found-footage, psychological-horror, pixel-art, isometric, short, narrative, experimental, chinese, offline, singleplayer
@@ -50,7 +50,7 @@ Free (prototype). Optional donation if you want to support the next chapter.
 - HUD 随窗口等比缩放：1080p / 1440p 下字幕与章节目标保持可读
 - 暗房与走廊的暗部亮度按「低亮度笔记本」校准过（55% 显示增益下仍可辨认目标）
 - 字幕：所有台词均有中文字幕
-- 无快速反应 QTE、无失败惩罚
+- 无快速反应 QTE。失败会黑场并重开当前这一轮，已完成的轮次保留，没有 Game Over。
 
 ## AI disclosure
 占位资产（DV 视频、关键美术、部分参考图、音效、音乐、老妇语音）由 MiniMax Design 生成；代码、像素场景与交互由本原型制作。正式版将替换为实拍与手绘像素素材。

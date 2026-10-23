@@ -1,6 +1,6 @@
 # 第三方评估交接报告
 
-> **HISTORICAL — 历史快照（v2.8，2026-10-21）。** 本文的时长与“10 分钟未达标 / 暂不建议上架”结论已被 v2.10.2 取代：当前首次游玩中位 9:38，门禁见 `./dev/verify.sh`，现状以 [`README.md`](README.md) 与 [`DEVLOG.md`](DEVLOG.md) 为准。
+> **HISTORICAL — 历史快照（v2.8，2026-10-21）。** 本文的时长与“10 分钟未达标 / 暂不建议上架”结论已被 v2.10.3 取代：当前首次游玩中位 9:38，门禁见 `./dev/verify.sh`，现状以 [`README.md`](README.md) 与 [`DEVLOG.md`](DEVLOG.md) 为准。
 
 
 ## 《祭：她在画面里》v2.8（HISTORICAL）

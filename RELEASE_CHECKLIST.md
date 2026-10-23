@@ -1,4 +1,4 @@
-# Release checklist — v2.10.2
+# Release checklist — v2.10.3
 
 > 当前状态：可完整通关三结局（含第二幕暗房），真实按键回归已入库，首次游玩中位 9:38。
 > 机器可验的部分见 `./dev/verify.sh`；下面是仍需**人**做的部分。
@@ -29,7 +29,7 @@
 ```
 
 - [x] 只含运行时文件 + README/TRIAL_PLAY/RIGHTS/CREDITS/RELEASE_CHECKLIST/VERSION
-- [x] 输出 `dist/ji-she-in-frame-v2.10.2.zip` 与 `.sha256`
+- [x] 输出 `dist/ji-she-in-frame-v2.10.3.zip` 与 `.sha256`
 - [x] 解包后 `?test=1` 与 `?audiodbg=1` 均通过（2026-10-22 复验：`TEST PASS 72/72` / `AUDIO PASS`）
 - [x] 打包在 `verify.sh` 内自动完成，随后跑 `release_audit`，不会出现“改了代码但 dist 还是旧的”
 
