@@ -6537,11 +6537,11 @@ function advanceMovement(dt){
 // cost is one getImageData/putImageData plus a table lookup per pixel.
 // 24-colour dark horror palette, picked from PAL (k-medoids over PAL, then
 // hand-tuned toward the shadows): 9 cold darks, the full 5-step red ramp,
-// 5 wood/skin, 3 paper/bone, 2 flame. Default lock palette; 'full' = all PAL.
+// 6 wood/skin, 3 paper/bone, 1 flame. Default lock palette; 'full' = all PAL.
 const PAL24=['#020304','#0b0a08','#161c21','#20282e','#2a3237','#41505a','#102329','#1e3a42','#6a9aa0',
   '#1e0506','#3a0a0c','#5a1215','#8a2224','#b83a30',
   '#18100c','#39281a','#5a3a2c','#8a5f4a','#b08062',
-  '#665f52','#a89f8a','#d8cfb8','#d98a2e','#f2b85a'];
+  '#665f52','#a89f8a','#d8cfb8','#cfa080','#d98a2e'];
 function makeLock(hex){
   const n=hex.length, pr=new Uint8Array(n), pg=new Uint8Array(n), pb=new Uint8Array(n);
   const pal32=new Uint32Array(n);
