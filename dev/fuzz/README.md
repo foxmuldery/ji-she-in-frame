@@ -19,7 +19,7 @@
   交互走 `interact()` / `setCamera()` / `takePhoto()` / `commitRitual()` 等键盘同款函数。
 - 每一步都从该局种子的 RNG 里选：三个供品的顺序、先看哪个藏点、走错哪个点、
   是否摆错一次供、是否在 3.6 秒结局卡期间打开回看、是否在打字/转场时连按 Esc/Tab/F/L。
-- 15% 的局是纯 chaos：不找目标，只按合法动词乱按到步数上限，用来撞重入/覆盖层问题。
+- 10% 的局是纯 chaos：不找目标，只按合法动词乱按到步数上限，用来撞重入/覆盖层问题。
 - 每 tick 检查不变量：NaN/Infinity、坐标/深度越界、电量越界、章节/场景非法、
   计数为负或超上限、结局后回看仍打开。`window.onerror`、`unhandledrejection`、
   `console.error` 都计入问题。

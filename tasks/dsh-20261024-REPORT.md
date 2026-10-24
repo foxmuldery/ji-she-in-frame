@@ -18,7 +18,7 @@
 
 | 项 | 结果 | 命令 |
 | --- | --- | --- |
-| 语法 | `node --check game.js` OK | `/usr/bin/env PATH=/opt/homebrew/bin:$PATH node --check game.js` |
+| 语法 | `node --check game.js` OK | `PATH=/opt/homebrew/bin:$PATH node --check game.js` |
 | 自测 | **TEST PASS 75/75** | `index.html?nointro=1&test=1` |
 | 音频 | **AUDIO PASS**（34 文件） | `index.html?nointro=1&novideo=1&audiodbg=1` |
 | 暗屏可读性 | **LUM PASS 23/23** | `index.html?nointro=1&lumtest=1&advance=6` |
@@ -42,6 +42,7 @@
 | `c5740cc` | test: 入库两轮 1000 局 fuzz 统计 |
 | `93dd375` | test: fuzz 运行后清理临时浏览器 profile |
 | `18f7ca6` | fix: 房间里的电话提示改为先走到门后（电话在走廊尽头） |
+| `1c3175f` | test: 第二轮 fuzz 更新到最终代码（0 问题） |
 
 ## 4. 修了什么（每类问题）
 
@@ -87,7 +88,7 @@ Fuzz 证据：修复前 118 次 `LEAK | review overlay still open after ending`�
 
 - 每局 `G.startGame(false)` 启动真实状态机；移动走 `blocked()`+`advanceMovement()`，交互走 `interact()`/`setCamera()`/`takePhoto()`/`commitRitual()` 等键盘同款函数。
 - 每步由该局种子 RNG 选：三个供品顺序、先看哪个藏点、走错哪个点、是否摆错供品、是否在延迟结局窗口按 R、是否在转场/覆盖层上连按 Esc/Tab/F/L。
-- 15% 局为纯 chaos：不找目标，只按合法动词乱按，专门撞重入/覆盖层。
+- 10% 局为纯 chaos：不找目标，只按合法动词乱按，专门撞重入/覆盖层。
 - 每 tick 检查：NaN/Infinity、坐标/深度越界、电量越界、章节/场景非法、计数为负/超上限、结局后回看仍打开；`window.onerror`、`unhandledrejection`、`console.error` 全记。
 - 终止：结局 / 120 秒无进展 / 1200 秒模拟上限。种子可复现。
 

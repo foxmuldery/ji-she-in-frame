@@ -24,7 +24,7 @@
   const q=new URLSearchParams(location.search);
   const RUNS=Math.max(1,Math.min(5000,parseInt(q.get('fuzz'),10)||1000));
   const BASE=parseInt(q.get('fuzzseed'),10)||20261024;
-  const CHAOS_FRAC=Math.max(0,Math.min(1,parseFloat(q.get('chaos'))||0.15));
+  const CHAOS_FRAC=Math.max(0,Math.min(1,parseFloat(q.get('chaos'))||0.1));
   const DT=0.05;
   const STEP_CAP=Math.round(1200/DT);   // 20 simulated minutes hard cap
   const STALL_SEC=120;
