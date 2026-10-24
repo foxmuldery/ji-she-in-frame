@@ -3531,7 +3531,7 @@ function updateChapterHUD(){
           const seen=(c.roomSeen?1:0)+(c.facesSeen?1:0)+(c.nameSeen?1:0);
           count=c.answered?'电话：已接':'看清 '+seen+' / 3　·　距离 '+Math.round((c.depth||0)*100)+'%';
         } else {
-          name='电话'; obj='门后的电话在响。<br/>走到门口按 <b>E</b> 接电话。';
+          name='电话'; obj='门后的电话在响。<br/>走到门口按 <b>E</b> 去门后。';
           count='电话：未接';
         }
       } else {
@@ -5738,7 +5738,7 @@ function takeFinalPhoto(){
   glitchNow();
   playMedia('oldBreath',0.55,0.04);
   say('拍到了。电话响了。',3000);
-  prompt('走到门口按 E 接电话',5200);
+  prompt('走到门口按 E 去门后',5200);
   updateChapterHUD();
 }
 function photosAll(){
@@ -6332,7 +6332,7 @@ function interact(){
   if (state.scene==='corridor'){ corridorInteract(); return; }
   if (state.chapter===5 && state.finalPhoto && !state.phoneDone){
     if (nearDoor()) startCorridor();
-    else { say('电话在门后。',2400); prompt('走到门口按 E 接电话',3600); }
+    else { say('电话在门后。',2400); prompt('走到门口按 E 去门后',3600); }
     return;
   }
   if (state.chapter===2 && huntInteract()) return;
