@@ -8049,7 +8049,7 @@ window.__jiThird={
   keys, tickJobs, updateBattery, updateHide, updateCorridor, updateReviewKind, advanceMovement,
   commitRitual, takePhoto, completeCameraScan, takeAnomalyPhoto, takeFinalPhoto,
   startChapter, startReview, exitReview, reviewPick, stepLookFrame, setReconOffset,
-  toggleReviewSplit, raiseHand, answerPhone, startCorridor, corridorInteract,
+  toggleReviewSplit, raiseHand, answerPhone, startCorridor, corridorInteract, corridorLookOn, corridorLookOff,
   startDarkroom, updateDarkroom, darkLookOn, darkLookOff, darkInteract,
   spliceAdjust, spliceCommit, closeSplicer, finishDarkroom, darkPrint,
   pauseGame, resumeGame, toggleMute, toggleFlashSafe, returnToTitle,
@@ -8073,6 +8073,14 @@ if (simParam){
   const s=document.createElement('script');
   s.src='dev/sim/player_sim.js';
   s.onerror=()=>{ document.title='SIM FAIL: harness missing'; };
+  document.body.appendChild(s);
+}
+// Dev-only random-player fuzz harness (?fuzz=<runs>&fuzzseed=<n>).
+const fuzzParam=params.get('fuzz');
+if (fuzzParam){
+  const s=document.createElement('script');
+  s.src='dev/fuzz/fuzz_sim.js';
+  s.onerror=()=>{ document.title='FUZZ FAIL: harness missing'; };
   document.body.appendChild(s);
 }
 // Online playtest recorder (?rec=1): keys, on-screen text, state diffs and an
