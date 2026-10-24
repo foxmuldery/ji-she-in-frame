@@ -187,3 +187,7 @@ PATH=/opt/homebrew/bin:$PATH ./dev/package.sh
 - `dev/sim/player_sim.js` — 更新到当前章节的确定性玩家模拟
 - `tasks/fuzz-round1.json` / `tasks/fuzz-round2.json` — 两轮原始统计
 - `tasks/dsh-20261024-REPORT.md` — 本报告
+
+## 10. 环境说明（提交落盘）
+
+本工作区的 git 元数据原本指向工作区外的 `Documents/.../.git/worktrees/ji-dsh`；沙箱为 `workspace-write`，对该路径写 `index.lock` 会被拒绝，`git commit` 无法落盘。为满足“所有改动已提交”，我把该 worktree 的 git 元数据复制到本目录内（保留原分支 `exp/dsh-20261024`、历史、remote），并让本目录的 `.git` 指向这份副本；未 push、未改动远端。若需要在原仓库中继续，请从本目录的提交导出 patch 后再应用。
