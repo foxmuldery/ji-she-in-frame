@@ -4230,7 +4230,12 @@ function exitReview(){
     }
     return;
   }
-  prompt('E 走向她　/　按住 F 继续拍　/　R 回看');
+  // The tape can be opened in any chapter; the line you get back must match
+  // what this chapter actually wants (it used to always say "E 走向她").
+  prompt(state.chapter===2?'F 取景器　/　E 靠近她　/　R 回看'
+    :state.chapter===3?'F 看取景器　/　L 快门　/　R 回看'
+    :state.chapter===4?'F 看她　/　E 躲　/　R 回看'
+    :'E 走向她　/　按住 F 继续拍　/　R 回看');
   say('你按下暂停。',2200);
   if (state.ritual.active && !state.ritual.done && !state.ending){
     state.ritual.reviews=(state.ritual.reviews||0)+1;
@@ -6250,6 +6255,7 @@ function chooseBad(){
   closeCase();
   state.ending='bad';
   state.ended=true;
+  if (state.review) exitReview();   // the delayed film/bad card must not leave the tape UI on top
   document.body.classList.add('ended');
   state.choice=false;
   state.camera=false;
@@ -6280,6 +6286,7 @@ function choose(ending){
   closeCase();
   state.ending=ending;
   state.ended=true;
+  if (state.review) exitReview();   // startSecondTake's delayed card can land while R is open
   document.body.classList.add('ended');
   state.choice=false;
   state.camera=false;
@@ -6429,6 +6436,11 @@ window.addEventListener('keydown',(e)=>{
   // Shelf chrome first: Esc closes credits, otherwise toggles pause.
   if (e.code==='Escape' && creditsEl && !creditsEl.classList.contains('hidden')){
     e.preventDefault(); hideCredits(); return;
+  }
+  // In the tape, Esc closes the tape (the review handler below always said so);
+  // it used to fall through to the pause card and stack two screens.
+  if (e.code==='Escape' && state.review && !state.paused){
+    e.preventDefault(); exitReview(); return;
   }
   if (e.code==='Escape' && state.started && !state.ended){
     e.preventDefault();
@@ -7247,6 +7259,10 @@ async function runTest(){
   check('ritualDone', state.ritual.done && currentTake()===RITUAL_TRUE);
   startChapter(2);
   check('chapter2', state.chapter===2 && state.hunt && state.hunt.mode==='find' && state.chapterTimes.length>=1);
+  startReview();
+  check('reviewCh2', state.review);
+  exitReview();
+  check('reviewCh2Prompt', promptEl.textContent.includes('取景器'), promptEl.textContent);
   state.hunt.pos=0; state.wx=HIDE_SPOTS[0].x; state.wy=HIDE_SPOTS[0].y; interact();
   check('findOne', state.hunt.count===1);
   startChapter(3);
@@ -7332,6 +7348,13 @@ async function runTest(){
   check('split', state.reviewSplit);
   exitReview();
   check('reviewExit', !state.review);
+  // Esc is advertised as an exit in the tape UI; it must not open pause instead.
+  startReview();
+  await sleep(140);
+  check('reviewReopen', state.review);
+  window.dispatchEvent(new KeyboardEvent('keydown',{code:'Escape',bubbles:true}));
+  await sleep(120);
+  check('reviewEscExit', !state.review && !state.paused);
   // shelf chrome: pause, credits round-trip, resume
   pauseGame();
   await sleep(120);
@@ -7401,6 +7424,19 @@ async function runTest(){
   await sleep(60);
   check('scareTrigger', state.scareUntil>0 && fadeEl.classList.contains('on'));
   state.scareUntil=0; fadeEl.classList.remove('on'); state.silent=true;
+  // A delayed film card can land while the tape is open (startSecondTake has a
+  // 3.6 s card). The ending must close the tape instead of stacking on it.
+  startGame(true);
+  await sleep(100);
+  state.mismatch=true; state.choice=true; state.handRaised=true;
+  state.uncannyDone=true; state.talked=true;
+  startSecondTake();
+  startReview();
+  await sleep(120);
+  check('filmRaceReviewOpen', state.review);
+  await waitGame(4);
+  check('filmRaceCleared', state.ended && state.ending==='film' && !state.review,
+    'review='+state.review+' ending='+state.ending);
   const el=document.createElement('pre');
   el.id='testResult';
   el.style.cssText='position:fixed;left:8px;top:8px;z-index:9999;background:#000;color:#0f0;font:11px monospace;padding:8px;max-height:90vh;overflow:auto;';
