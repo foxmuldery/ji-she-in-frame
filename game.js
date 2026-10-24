@@ -97,13 +97,18 @@ function videoWanted(){
 function videoLive(){
   return videoWanted() && videoReady && !videoPlayBlocked && !forcePoster;
 }
+let lastVideoLive=null,lastVideoPending=null;
 function updateVideoLayer(){
   if (!dvVideo) return false;
   const live=videoLive();
   if (live){
-    stage.classList.add('videoActive');
-    if (dvVideoCanvas) dvVideoCanvas.classList.add('on');
-    dvVideo.setAttribute('aria-hidden','false');
+    if (!lastVideoLive){
+      stage.classList.add('videoActive');
+      if (dvVideoCanvas) dvVideoCanvas.classList.add('on');
+      dvVideo.setAttribute('aria-hidden','false');
+      lastOverlayOn=null;
+    }
+    lastVideoLive=true;
     if (videoFrozen){
       try{ if (!dvVideo.paused) dvVideo.pause(); }catch(e){}
     } else if (dvVideo.paused && !videoPlayPending){
@@ -119,9 +124,13 @@ function updateVideoLayer(){
     }
   } else {
     try{ if (videoReady && !dvVideo.paused) dvVideo.pause(); }catch(e){}
-    stage.classList.remove('videoActive');
-    if (dvVideoCanvas) dvVideoCanvas.classList.remove('on');
-    dvVideo.setAttribute('aria-hidden','true');
+    if (lastVideoLive!==false){
+      stage.classList.remove('videoActive');
+      if (dvVideoCanvas) dvVideoCanvas.classList.remove('on');
+      dvVideo.setAttribute('aria-hidden','true');
+      lastOverlayOn=null;
+    }
+    lastVideoLive=false;
   }
   // While the decoder is spinning up (or autoplay is blocked), hold on the
   // poster frame instead of flashing the pixel fallback. It is a real frame
@@ -129,7 +138,10 @@ function updateVideoLayer(){
   const pending = !videoDisabled && !videoFailed && !!state.camera
     && !state.review && !state.ended && !state.mismatch && state.takes<1
     && (forcePoster || !videoReady || videoPlayBlocked);
-  stage.classList.toggle('videoPending',pending);
+  if (pending!==lastVideoPending){
+    lastVideoPending=pending;
+    stage.classList.toggle('videoPending',pending);
+  }
   return live;
 }
 function initVideoLayer(){
@@ -202,9 +214,12 @@ function startRetroDisplay(){
   if (/[?&]noshader=1/.test(location.search)) return;
   initRetroDisplay();
 }
+let lastOverlayOn=null;
 function syncCameraOverlay(){
   if (!retroDisplay || !retroDisplay.overlay) return;
   const on=camera.classList.contains('on') && !stage.classList.contains('videoActive');
+  if (on===lastOverlayOn) return;   // this runs every frame; styles are not free
+  lastOverlayOn=on;
   retroDisplay.overlay.style.opacity=on?'1':'0';
   retroDisplay.overlay.style.display=on?'block':'none';
 }
@@ -222,6 +237,7 @@ function initRetroDisplay(){
       retroDisplay.overlay.style.transition='opacity .14s ease';
       retroDisplay.overlay.style.display='none';
     }
+    lastOverlayOn=null;
   }catch(e){ console.warn('RetroZone shader unavailable',e); retroDisplay=null; }
   syncCameraOverlay();
 }
@@ -3440,13 +3456,19 @@ function updateRunText(){
   if (pauseRunEl) pauseRunEl.textContent='本次用时 '+runClock(elapsed);
   if (endRunEl) endRunEl.textContent='用时 '+runClock(elapsed);
 }
+let lastBatteryHud=-1;
 function updateBatteryHUD(){
   if (FUZZ_ACTIVE) return;
   if (!ritualBatteryEl) return;
   const pct=Math.max(0,Math.min(100,Math.round(state.battery)));
+  // Called every frame from updateBattery; only touch the DOM when the visible
+  // integer changes (or the low-battery class flips).
+  if (pct===lastBatteryHud) return;
+  lastBatteryHud=pct;
   ritualBatteryEl.textContent='DV 电 '+pct+'%';
   ritualBatteryEl.classList.toggle('low',pct<25);
 }
+let lastChapterHudKey=null;
 function updateChapterHUD(){
   if (!chapterEl) return;
   const on=state.chapter>=2 && state.chapter<=5 && !state.ended;
@@ -3523,6 +3545,11 @@ function updateChapterHUD(){
     FUZZ_UI.obj=obj.replace(/<br\s*\/?>/g,' ').replace(/<[^>]+>/g,'');
     return;
   }
+  // Corridor/darkroom call this every frame. Rebuilding the same innerHTML at
+  // 60 fps forces avoidable layout/style work, so skip identical frames.
+  const key=(on?1:0)+'\u0001'+kicker+'\u0001'+name+'\u0001'+obj+'\u0001'+count;
+  if (key===lastChapterHudKey) return;
+  lastChapterHudKey=key;
   chapterEl.classList.toggle('hidden',!on);
   if (!on) return;
   chapterKickerEl.textContent=kicker;
