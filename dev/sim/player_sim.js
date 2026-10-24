@@ -135,11 +135,35 @@
     G.tickJobs();
     if (g.opts.grief) griefTick(g);
     const s=G.state;
-    if (s.scene!=='corridor' && !s.review) G.advanceMovement(DT);
-    G.updateBattery(DT);
-    if (G.state.battery<g.minBat) g.minBat=G.state.battery;
-    G.updateHide(DT);
-    if (s.scene==='corridor') G.updateCorridor(DT);
+    if (s.scene==='corridor'){
+      G.updateCorridor(DT);
+    } else if (s.scene==='darkroom'){
+      G.updateDarkroom(DT);
+    } else {
+      if (!s.review) G.advanceMovement(DT);
+      G.updateBattery(DT);
+      if (G.state.battery<g.minBat) g.minBat=G.state.battery;
+      G.updateHide(DT);
+    }
+  }
+  // Walk the first-person hall/room to a depth the way W/S would.
+  function goDepth(g,scene,target,timeout){
+    const maxT=Math.round((timeout||18)/DT);
+    for (let i=0;i<maxT;i++){
+      const s=G.state;
+      if (s.paused) G.resumeGame();
+      if (s.review) G.exitReview();
+      if (s.caseOpen) G.closeCase();
+      if (s.transition){ clearKeys(); step(g); continue; }
+      if (s.scene!==scene||s.ending){ clearKeys(); return false; }
+      const d=scene==='corridor'?s.corr.depth:s.dark.depth;
+      if (Math.abs(d-target)<0.02){ clearKeys(); tick(g,0.05); return true; }
+      clearKeys();
+      G.keys[d<target?'up':'down']=true;
+      step(g);
+    }
+    clearKeys();
+    return false;
   }
   function tick(g,sec){
     const n=Math.max(1,Math.round(sec/DT));
@@ -310,7 +334,7 @@
         if (cur!==tgt){ k=name; break; }
       }
       if (!k) return true;
-      if (!goTo(g,SPOTS[k][0],SPOTS[k][1])) return false;
+      if (!goTo(g,SPOTS[k][0],SPOTS[k][1],18,0.16)) return false;
       G.interact();
       tick(g,0.1);
       if (G.state.inputLock) tick(g,1.7);
@@ -425,7 +449,7 @@
   function chapter2(g){
     for (let i=0;i<10;i++){
       if (G.state.chapter!==2) break;
-      if (G.state.hunt&&G.state.hunt.count>=3){ tick(g,0.4); continue; }
+      if (G.state.hunt&&G.state.hunt.count>=4){ tick(g,0.4); continue; }
       const pos=G.state.hunt.pos;
       G.setCamera(true); tick(g,0.4); G.setCamera(false); tick(g,0.2);   // read the hint
       if (g.opts.wrongHunt && i===0){
@@ -537,6 +561,10 @@
       if (G.state.transition) transN++;
       if (!G.keys.up) { G.keys.up=true; }
       const d=G.state.corr.depth;
+      // The corridor's three beats are viewfinder-only; a player holds F there.
+      if (d>=0.20 && !G.state.corr.roomSeen){ clearKeys(); G.corridorLookOn(); tick(g,0.1); G.corridorLookOff(); }
+      if (d>=0.50 && !G.state.corr.facesSeen){ clearKeys(); G.corridorLookOn(); tick(g,0.1); G.corridorLookOff(); }
+      if (d>=0.80 && !G.state.corr.nameSeen){ clearKeys(); G.corridorLookOn(); tick(g,0.1); G.corridorLookOff(); }
       if (d>0.3 && !G.state.corr.portrait) G.interact();
       if (d>0.55 && !G.state.corr.threadSeen) G.interact();
       if (d>=0.9){ clearKeys(); G.interact(); break; }
@@ -547,16 +575,61 @@
     clearKeys();
     if (!G.state.corr.answered){ issue(g,'CORR','never reached phone depth='+G.state.corr.depth.toFixed(2)+
       ' '+probe()+' pausedN='+pausedN+' transN='+transN+' stall='+stall+' port='+G.state.corr.portrait+
-      ' thr='+G.state.corr.threadSeen); return 'CORR_STALL'; }
+      ' thr='+G.state.corr.threadSeen+' name='+G.state.corr.nameSeen); return 'CORR_STALL'; }
+    if (!G.state.corr.nameSeen) issue(g,'CORR','phone answered without seeing the nameplate');
+    if (!waitFor(g,()=>G.state.corr.doorOpen,5)) { issue(g,'CORR','door did not open'); return 'CORR_DOOR'; }
+    if (!goDepth(g,'corridor',0.9,4)) return 'CORR_DOOR';
+    G.interact();
+    if (!waitFor(g,()=>G.state.scene==='darkroom',5)) { issue(g,'CORR','darkroom did not start'); return 'CORR_DARK'; }
+    const r=darkroom(g);
+    if (r) return r;
     if (!waitFor(g,()=>G.state.scene==='room'&&G.state.phoneDone,6)) { issue(g,'CORR','phone did not return'); return 'CORR_RETURN'; }
     return finale(g);
   }
 
+  function darkroom(g){
+    for (const [d,key] of [[0.22,'line'],[0.55,'bench'],[0.80,'wall']]){
+      if (G.state.paused) G.resumeGame();
+      if (G.state.transition) tick(g,0.3);
+      if (G.state.review) G.exitReview();
+      if (G.state.caseOpen) G.closeCase();
+      if (!goDepth(g,'darkroom',d,8)){ issue(g,'DARK','depth failed want='+d+
+        ' got='+(G.state.dark?G.state.dark.depth.toFixed(2):'-')+
+        ' look='+(G.state.dark?G.state.dark.lookOn:'-')+' open='+(G.state.dark?G.state.dark.open:'-')+
+        ' paused='+G.state.paused+' trans='+G.state.transition+' scene='+G.state.scene);
+      return 'DARK_DEPTH'; }
+      if (G.state.paused) G.resumeGame();
+      if (G.state.transition) tick(g,0.3);
+      if (G.state.review) G.exitReview();
+      if (G.state.caseOpen) G.closeCase();
+      G.darkLookOn(); tick(g,0.12); G.darkLookOff();
+      if (!G.state.dark.seen[key]){ issue(g,'DARK','beat not seen '+key); return 'DARK_LOOK'; }
+    }
+    if (!goDepth(g,'darkroom',0.55,8)) return 'DARK_DEPTH';
+    G.darkInteract(); tick(g,0.15);
+    if (!G.state.dark.open){ issue(g,'DARK','splicer did not open'); return 'DARK_OPEN'; }
+    for (let i=0;i<60 && !G.state.dark.split;i++){
+      const k=G.state.dark;
+      const off=k.v-k.target;
+      if (Math.abs(off)<=0.02){ G.spliceCommit(); tick(g,0.2); break; }
+      G.spliceAdjust(off>0?-1:1); tick(g,0.02);
+    }
+    if (!G.state.dark.split){ issue(g,'DARK','splice not committed v='+G.state.dark.v+' t='+G.state.dark.target); return 'DARK_SPLICE'; }
+    G.darkPrint(); tick(g,0.2);
+    if (!goDepth(g,'darkroom',0.06,8)) return 'DARK_DEPTH';
+    G.darkInteract();
+    if (!waitFor(g,()=>G.state.scene==='room',5)){ issue(g,'DARK','exit failed'); return 'DARK_EXIT'; }
+    return null;
+  }
+
   function finale(g){
+    if (G.state.ended) return null;
     if (!goTo(g,WOMAN[0],WOMAN[1],12)) return 'FIN_WALK';
     ensureFree(g);
+    if (G.state.paused) G.resumeGame();
     G.raiseHand();
     tick(g,0.2);
+    if (G.state.ended) return null;
     if (!G.state.handRaised){ issue(g,'FIN','raiseHand refused '+probe()); return 'FIN_HAND'; }
     ensureFree(g);
     if (!holdCamera(g)) { issue(g,'FIN','camera refused before mismatch '+camWhy(g)); return 'FIN_MISMATCH'; }
@@ -567,6 +640,9 @@
     if (g.opts.ending==='film'){
       if (!G.state.choice && !G.state.takes){ issue(g,'FIN','choice false before film '+probe()); return 'FIN_CHOICE'; }
       if (!G.state.takes){
+        if (G.state.paused) G.resumeGame();
+        if (G.state.caseOpen) G.closeCase();
+        if (G.state.review) G.exitReview();
         G.setCamera(true); tick(g,0.3);
         if (!G.state.takes && !G.state.ended){ issue(g,'FIN','second take did not start '+probe()); return 'FIN_TAKE'; }
         G.setCamera(false);
