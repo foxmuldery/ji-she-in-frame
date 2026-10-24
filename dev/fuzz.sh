@@ -21,11 +21,12 @@ OUTJSON="${3:-}"
 [[ -f dev/fuzz/fuzz_sim.js ]] || { echo "FAIL: dev/fuzz/fuzz_sim.js missing" >&2; exit 1; }
 
 OUT="$(mktemp -t ji_fuzz_XXXXXX)"
-trap 'rm -f "$OUT"' EXIT
+PROFILE="$(mktemp -d -t ji_fuzz_profile_XXXXXX)"
+trap 'rm -f "$OUT"; rm -rf "$PROFILE"' EXIT
 "$CHROME" --headless=new --no-sandbox --enable-unsafe-swiftshader \
   --use-angle=swiftshader --ignore-gpu-blocklist \
   --allow-file-access-from-files --disable-web-security --mute-audio \
-  --user-data-dir="$(mktemp -d -t ji_fuzz_profile_XXXXXX)" \
+  --user-data-dir="$PROFILE" \
   --virtual-time-budget=600000 --dump-dom \
   "file://${ROOT}/index.html?nointro=1&fuzz=${RUNS}&fuzzseed=${SEED}&chaos=0.1" 2>/dev/null > "$OUT"
 
