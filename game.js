@@ -3857,8 +3857,11 @@ function setCamera(on){
     // dialogue was skipped.
     if (!state.firstCameraDone && !state.talked && !nearWoman()){ say('先走近她。',2200); return; }
     state.camera=true;
-    if (!state.firstCameraDone){ state.firstCameraDone=true; }
-    if (nearWoman() && !state.firstCameraDone){ state.closeupUntil=performance.now()+1500; glitchNow(); }
+    // Capture "first raise" before marking it done: the close-up below used to
+    // test the flag after setting it, so the first face close-up never played.
+    const firstRaise=!state.firstCameraDone;
+    state.firstCameraDone=true;
+    if (nearWoman() && firstRaise){ state.closeupUntil=performance.now()+1500; glitchNow(); }
     camera.classList.add('on');
     dvBtn.classList.add('active');
     roleName.textContent='主观摄像机';
@@ -7192,6 +7195,7 @@ async function runTest(){
   setCamera(true);
   await sleep(200);
   check('cameraOn', state.camera && state.revealed);
+  check('firstCloseup', state.closeupUntil>performance.now(), 'close-up only on the first raise');
   check('subjectLabel', subjectEl.textContent.includes('谢雨洁'));
   await waitGame(1.4);
   check('filmerShown', filmerEl.classList.contains('show'));
