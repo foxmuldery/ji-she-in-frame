@@ -1,0 +1,162 @@
+{
+ "schema": "ji-fuzz/1",
+ "seedBase": 20261024,
+ "runs": 1000,
+ "chaosRuns": 100,
+ "playerRuns": 900,
+ "ms": 6037,
+ "simulatedSec": 172243,
+ "steps": 3445235,
+ "outcomes": {
+  "CHAOS_CAP": 99,
+  "film": 236,
+  "help": 572,
+  "bad": 93
+ },
+ "endings": {
+  "help": 572,
+  "film": 236,
+  "bad": 93
+ },
+ "reachedEnding": 901,
+ "noEnding": 0,
+ "completedPlayers": 808,
+ "playerCompletionPct": 89.78,
+ "badEndings": 93,
+ "duration": {
+  "p10": 35.5,
+  "p50": 122.1,
+  "p90": 136.9,
+  "min": 34.4,
+  "max": 1067.9
+ },
+ "minBattery": 0,
+ "problemCounts": {
+  "exceptions": 0,
+  "consoleErrors": 0,
+  "stalls": 0,
+  "noEnding": 0,
+  "chaosCaps": 99,
+  "navFailures": 0
+ },
+ "issueCount": {
+  "CAMERA | first raise near her did not set the close-up": 900,
+  "REVIEW_ESC | Esc left review open=true paused=false": 273,
+  "LEAK | review overlay still open after ending": 118
+ },
+ "sampleFailures": [],
+ "sampleEndings": [
+  {
+   "seed": 20261025,
+   "mode": "player",
+   "outcome": "film",
+   "ending": "film",
+   "chapter": 5,
+   "scene": "room",
+   "simSec": 122,
+   "steps": 2441,
+   "minBattery": 34.8,
+   "turns": 12,
+   "bursts": 3,
+   "chaos": 0,
+   "mayhems": 3,
+   "navFails": 0,
+   "errors": 0,
+   "ms": 9.2,
+   "issues": [
+    "CAMERA | first raise near her did not set the close-up"
+   ]
+  },
+  {
+   "seed": 20261026,
+   "mode": "player",
+   "outcome": "help",
+   "ending": "help",
+   "chapter": 5,
+   "scene": "room",
+   "simSec": 119.9,
+   "steps": 2398,
+   "minBattery": 34.3,
+   "turns": 11,
+   "bursts": 3,
+   "chaos": 0,
+   "mayhems": 3,
+   "navFails": 0,
+   "errors": 0,
+   "ms": 3.6,
+   "issues": [
+    "CAMERA | first raise near her did not set the close-up",
+    "REVIEW_ESC | Esc left review open=true paused=false"
+   ]
+  },
+  {
+   "seed": 20261027,
+   "mode": "player",
+   "outcome": "film",
+   "ending": "film",
+   "chapter": 5,
+   "scene": "room",
+   "simSec": 131.9,
+   "steps": 2638,
+   "minBattery": 34.3,
+   "turns": 13,
+   "bursts": 1,
+   "chaos": 0,
+   "mayhems": 1,
+   "navFails": 0,
+   "errors": 0,
+   "ms": 2.7,
+   "issues": [
+    "CAMERA | first raise near her did not set the close-up",
+    "LEAK | review overlay still open after ending"
+   ]
+  },
+  {
+   "seed": 20261028,
+   "mode": "player",
+   "outcome": "film",
+   "ending": "film",
+   "chapter": 5,
+   "scene": "room",
+   "simSec": 117.5,
+   "steps": 2351,
+   "minBattery": 34.4,
+   "turns": 13,
+   "bursts": 1,
+   "chaos": 0,
+   "mayhems": 1,
+   "navFails": 0,
+   "errors": 0,
+   "ms": 3.1,
+   "issues": [
+    "CAMERA | first raise near her did not set the close-up"
+   ]
+  },
+  {
+   "seed": 20261029,
+   "mode": "player",
+   "outcome": "help",
+   "ending": "help",
+   "chapter": 5,
+   "scene": "room",
+   "simSec": 123.8,
+   "steps": 2476,
+   "minBattery": 37,
+   "turns": 14,
+   "bursts": 1,
+   "chaos": 0,
+   "mayhems": 1,
+   "navFails": 0,
+   "errors": 0,
+   "ms": 2.5,
+   "issues": [
+    "CAMERA | first raise near her did not set the close-up"
+   ]
+  }
+ ],
+ "meta": {
+  "round": 1,
+  "note": "pre-fix tree (game.js at HEAD + fuzz loader only)",
+  "command": "index.html?nointro=1&fuzz=1000&fuzzseed=20261024&chaos=0.1"
+ }
+}
